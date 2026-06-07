@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Approval Queue — ProcureChain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <div id="hdr"></div>
+  <main class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold">Approval queue</h1>
+      <p class="text-sm text-slate-600">
+        Every tender must pass <b>4 independent reviews</b>:
+        department → financial → compliance → final.
+        Each decision is permanently recorded on the audit chain.
+      </p>
+    </div>
+
+    <div id="queue" class="space-y-3"><div class="text-slate-400 text-sm">Loading…</div></div>
+
+    <div id="history" class="mt-10"></div>
+  </main>
+
+  <!-- decision modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+      <h2 id="m-title" class="font-bold text-lg mb-1"></h2>
+      <p id="m-sub" class="text-sm text-slate-500 mb-3"></p>
+      <form id="form" class="space-y-3">
+        <textarea name="comments" rows="3" placeholder="Comments (optional)" class="w-full border rounded px-3 py-2"></textarea>
+        <div class="flex justify-end gap-2">
+          <button type="button" id="m-cancel" class="px-4 py-2 border rounded">Cancel</button>
+          <button type="button" id="m-reject" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded font-semibold">Reject</button>
+          <button type="button" id="m-approve" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold">Approve</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const user = requireAuth(['officer','compliance_officer','auditor','admin']);
+    renderHeader(document.getElementById('hdr'));
+
+    let activeTender = null;
+
+    async function loadQueue() {
+      try {
+        const q = await api('/api/approvals/queue');
+        const el = document.getElementById('queue');
+        if (!q.length) {
+          el.innerHTML = '<div class="bg-white rounded-xl border p-6 text-center text-slate-400">Nothing in your queue.</div>';
+        } else {
+          el.innerHTML = q.map(t => `
+            <div class="bg-white border rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <div class="font-semibold">${t.title}</div>
+                <div class="text-xs text-slate-500 mt-1">
+                  ${t.category} · ${t.region} · budget ${fmtMoney(t.budget)} · created by ${t.created_by}
+                </div>
+                <div class="mt-1">${stageBadge(t.stage)} ${statusBadge(t.status)}</div>
+              </div>
+              <button data-id="${t.tender_id}" data-stage="${t.stage}" data-title="${t.title.replaceAll('"','&quot;')}"
+                class="open-modal bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded font-semibold">Review</button>
+            </div>`).join('');
+          el.querySelectorAll('.open-modal').forEach(b => b.onclick = () => openModal(b.dataset));
+        }
+      } catch (e) { document.getElementById('queue').innerHTML = `<div class="text-rose-600">${e.message}</div>`; }
+
+      // Recent history across all tenders.
+      const tenders = await api('/api/tenders');
+      let html = `<h2 class="text-xl font-bold mb-3">Recent approval history</h2>
+                  <div class="bg-white border rounded-xl divide-y">`;
+      let any = false;
+      for (const t of tenders.slice(0, 10)) {
+        const approvals = await api(`/api/tenders/${t.id}/approvals`);
+        if (!approvals.length) continue;
+        any = true;
+        html += `<div class="p-3">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold">${t.title}</div>
+            ${statusBadge(t.status)}
+          </div>
+          <div class="mt-2 grid gap-1 text-xs">
+            ${approvals.map(a => `
+              <div class="flex items-center gap-2">
+                ${stageBadge(a.stage)}
+                <span class="badge ${a.decision==='approved'?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700'}">${a.decision}</span>
+                <span class="text-slate-600">${a.approver_name} (${a.approver_role})</span>
+                <span class="text-slate-400">· ${fmtDate(a.created_at)}</span>
+                ${a.comments ? `<span class="text-slate-500">— ${a.comments}</span>` : ''}
+              </div>`).join('')}
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+      document.getElementById('history').innerHTML = any ? html : '';
+    }
+
+    function openModal(ds) {
+      activeTender = ds;
+      document.getElementById('m-title').textContent = `Review: ${ds.title}`;
+      document.getElementById('m-sub').textContent = `Stage: ${ds.stage}. Your decision and comments will be permanently logged.`;
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+    document.getElementById('m-cancel').onclick = closeModal;
+    document.getElementById('m-approve').onclick = () => submit('approved');
+    document.getElementById('m-reject').onclick  = () => submit('rejected');
+
+    async function submit(decision) {
+      const comments = document.querySelector('#form [name=comments]').value;
+      try {
+        await api(`/api/tenders/${activeTender.id}/approve`, {
+          method: 'POST', body: { decision, comments },
+        });
+        closeModal();
+        document.querySelector('#form [name=comments]').value = '';
+        loadQueue();
+      } catch (e) { alert(e.message); }
+    }
+
+    loadQueue();
+  </script>
+</body>
+</html>

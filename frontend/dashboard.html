@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dashboard — ProcureChain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <div id="hdr"></div>
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Dashboard</h1>
+        <p id="welcome" class="text-sm text-slate-500"></p>
+      </div>
+      <div id="actions" class="flex gap-2"></div>
+    </div>
+
+    <section class="grid md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h2 class="font-bold mb-3">Tenders</h2>
+        <div id="tenders" class="space-y-3"><div class="text-slate-400 text-sm">Loading…</div></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h2 class="font-bold mb-3">Selected tender</h2>
+        <div id="detail" class="text-sm text-slate-500">Pick a tender on the left.</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Create tender modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+      <h2 class="font-bold text-lg mb-3">New tender</h2>
+      <form id="tender-form" class="space-y-2">
+        <input name="title" placeholder="Title" required class="w-full border rounded px-3 py-2" />
+        <textarea name="description" placeholder="Description" rows="3" class="w-full border rounded px-3 py-2"></textarea>
+        <div class="grid grid-cols-2 gap-2">
+          <input name="category" placeholder="Category (e.g. construction)" required class="border rounded px-3 py-2" />
+          <input name="region"   placeholder="Region (e.g. north)"          required class="border rounded px-3 py-2" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input name="budget"   type="number" min="1" step="any" placeholder="Budget" required class="border rounded px-3 py-2" />
+          <input name="deadline" type="datetime-local" required class="border rounded px-3 py-2" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="modal-cancel" class="px-4 py-2 border rounded">Cancel</button>
+          <button class="px-4 py-2 bg-indigo-600 text-white rounded font-semibold">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bid modal -->
+  <div id="bid-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+      <h2 class="font-bold text-lg mb-3">Submit bid</h2>
+      <form id="bid-form" class="space-y-2">
+        <input name="price" type="number" min="1" step="any" placeholder="Bid price" required class="w-full border rounded px-3 py-2" />
+        <input name="delivery_days" type="number" min="1" max="1095" placeholder="Delivery (days)" required class="w-full border rounded px-3 py-2" />
+        <textarea name="proposal" rows="4" placeholder="Proposal description" class="w-full border rounded px-3 py-2"></textarea>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="bid-cancel" class="px-4 py-2 border rounded">Cancel</button>
+          <button class="px-4 py-2 bg-indigo-600 text-white rounded font-semibold">Submit bid</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const user = requireAuth();
+    if (user) {
+      renderHeader(document.getElementById('hdr'));
+      document.getElementById('welcome').textContent =
+        `Signed in as ${user.email} (${user.role})`;
+
+      const actions = document.getElementById('actions');
+      if (user.role === 'officer' || user.role === 'admin') {
+        actions.innerHTML = `<button id="new-tender" class="bg-indigo-600 text-white px-4 py-2 rounded font-semibold">+ New tender</button>`;
+        document.getElementById('new-tender').onclick = () => toggleModal('modal', true);
+      }
+      load();
+    }
+
+    let selectedId = null;
+
+    async function load() {
+      const tenders = await api('/api/tenders');
+      const list = document.getElementById('tenders');
+      if (!tenders.length) { list.innerHTML = '<div class="text-slate-400 text-sm">No tenders yet.</div>'; return; }
+      list.innerHTML = tenders.map(t => `
+        <button data-id="${t.id}" class="tender-row text-left w-full border border-slate-200 hover:border-indigo-400 rounded-lg p-3 ${t.id===selectedId?'border-indigo-500 bg-indigo-50':''}">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold">${t.title}</div>
+            ${statusBadge(t.status)}
+          </div>
+          <div class="text-xs text-slate-500 mt-1">
+            ${t.category} · ${t.region} · budget ${fmtMoney(t.budget)} · ${t.bid_count} bid(s)
+            ${t.avg_risk !== null ? ' · avg risk ' + t.avg_risk : ''}
+            ${t.current_stage ? ' · awaiting ' + t.current_stage : ''}
+          </div>
+        </button>`).join('');
+      list.querySelectorAll('.tender-row').forEach(b => {
+        b.onclick = () => { selectedId = parseInt(b.dataset.id); load(); loadDetail(selectedId); };
+      });
+      if (selectedId) loadDetail(selectedId);
+    }
+
+    async function loadDetail(id) {
+      const detail = document.getElementById('detail');
+      detail.innerHTML = '<div class="text-slate-400 text-sm">Loading…</div>';
+      const [t, bids] = await Promise.all([
+        api('/api/tenders/' + id),
+        api(`/api/tenders/${id}/bids`),
+      ]);
+      const isOfficer = user.role === 'officer' || user.role === 'admin';
+      const isContractor = user.role === 'contractor';
+      const canBid = isContractor && t.status === 'open';
+      const canManage = isOfficer && ['open','evaluating'].includes(t.status);
+      const awaitingApproval = t.status.startsWith('pending_');
+
+      detail.innerHTML = `
+        <div class="border-b pb-3 mb-3">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="font-bold text-lg">${t.title}</div>
+              <div class="text-xs text-slate-500">${t.category} · ${t.region} · deadline ${fmtDate(t.deadline)}</div>
+            </div>
+            ${statusBadge(t.status)}
+          </div>
+          <p class="text-sm text-slate-600 mt-2">${t.description || ''}</p>
+          <div class="text-sm mt-2"><b>Budget:</b> ${fmtMoney(t.budget)}
+            ${t.awarded_to ? ` · <b>Awarded to:</b> ${t.awarded_to} (${fmtMoney(t.awarded_amount)})` : ''}
+          </div>
+          ${awaitingApproval ? `<div class="mt-2 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded p-2">
+            ⏳ This tender is in the <b>${t.current_stage}</b> review stage. It cannot accept bids until the approval workflow is complete.
+            <a href="/approvals.html" class="underline">Open queue →</a>
+          </div>` : ''}
+          ${t.contract_id ? `<div class="mt-2"><a href="/contract.html?id=${t.contract_id}" class="text-indigo-600 underline text-sm">Open contract →</a></div>` : ''}
+          <div class="mt-3 flex gap-2 flex-wrap">
+            ${canBid ? `<button id="open-bid" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm font-semibold">Submit bid</button>` : ''}
+            ${canManage && bids.length ? `<button id="evaluate" class="bg-amber-500 text-white px-3 py-1 rounded text-sm font-semibold">Evaluate (re-rank)</button>` : ''}
+            ${canManage ? `<button id="cancel" class="bg-slate-200 px-3 py-1 rounded text-sm">Cancel tender</button>` : ''}
+          </div>
+        </div>
+        <h3 class="font-semibold mb-2">Bids (${bids.length})</h3>
+        <div class="space-y-2">
+          ${bids.map(b => `
+            <div class="border rounded p-3 ${b.status==='awarded'?'border-emerald-400 bg-emerald-50':'border-slate-200'}">
+              <div class="flex items-center justify-between">
+                <div class="font-semibold">
+                  ${b.rank ? `#${b.rank}` : ''} ${b.contractor_name || 'Contractor #' + b.contractor_id}
+                  ${b.status==='awarded' ? '<span class="badge bg-emerald-200 text-emerald-800 ml-1">awarded</span>' : ''}
+                </div>
+                <div class="flex items-center gap-2">
+                  ${riskBadge(b.risk_level, b.risk_score)}
+                  <span class="font-bold">${fmtMoney(b.price)}</span>
+                </div>
+              </div>
+              <div class="text-xs text-slate-500 mt-1">${b.delivery_days} days · submitted ${fmtDate(b.created_at)}</div>
+              ${b.proposal ? `<div class="text-sm mt-1">${b.proposal}</div>` : ''}
+              ${b.risk_explanation ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-slate-600">Why this score?</summary><pre class="whitespace-pre-wrap mt-1 text-slate-700">${b.risk_explanation}</pre></details>` : ''}
+              ${isOfficer && t.status !== 'awarded' && t.status !== 'cancelled' ? `<button data-bid="${b.id}" class="award mt-2 bg-emerald-600 text-white text-xs px-3 py-1 rounded font-semibold">Award contract to this bid</button>` : ''}
+            </div>`).join('') || '<div class="text-slate-400 text-sm">No bids yet.</div>'}
+        </div>`;
+
+      const ob = document.getElementById('open-bid');
+      if (ob) ob.onclick = () => toggleModal('bid-modal', true);
+
+      const ev = document.getElementById('evaluate');
+      if (ev) ev.onclick = async () => {
+        try { await api(`/api/tenders/${id}/evaluate`, { method: 'POST', body: '{}' }); loadDetail(id); load(); }
+        catch (e) { alert(e.message); }
+      };
+      const cn = document.getElementById('cancel');
+      if (cn) cn.onclick = async () => {
+        if (!confirm('Cancel this tender?')) return;
+        try { await api(`/api/tenders/${id}/cancel`, { method: 'POST', body: '{}' }); loadDetail(id); load(); }
+        catch (e) { alert(e.message); }
+      };
+      detail.querySelectorAll('.award').forEach(btn => {
+        btn.onclick = async () => {
+          if (!confirm('Award this contract? This will be permanently recorded on the audit chain.')) return;
+          try {
+            await api(`/api/tenders/${id}/award/${btn.dataset.bid}`, { method: 'POST', body: '{}' });
+            loadDetail(id); load();
+          } catch (e) { alert(e.message); }
+        };
+      });
+    }
+
+    function toggleModal(id, show) {
+      document.getElementById(id).classList.toggle('hidden', !show);
+    }
+    document.getElementById('modal-cancel').onclick = () => toggleModal('modal', false);
+    document.getElementById('bid-cancel').onclick   = () => toggleModal('bid-modal', false);
+
+    document.getElementById('tender-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = Object.fromEntries(new FormData(e.target));
+      fd.budget = parseFloat(fd.budget);
+      fd.deadline = new Date(fd.deadline).toISOString();
+      try {
+        await api('/api/tenders', { method: 'POST', body: fd });
+        toggleModal('modal', false);
+        e.target.reset();
+        load();
+      } catch (err) { alert(err.message); }
+    };
+
+    document.getElementById('bid-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (!selectedId) return;
+      const fd = Object.fromEntries(new FormData(e.target));
+      fd.price = parseFloat(fd.price);
+      fd.delivery_days = parseInt(fd.delivery_days);
+      try {
+        await api(`/api/tenders/${selectedId}/bids`, { method: 'POST', body: fd });
+        toggleModal('bid-modal', false);
+        e.target.reset();
+        loadDetail(selectedId); load();
+      } catch (err) { alert(err.message); }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Analytics — ProcureChain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <div id="hdr"></div>
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+    <h1 class="text-2xl font-bold mb-6">Analytics</h1>
+
+    <section id="kpis" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8"></section>
+
+    <section class="grid md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-xl border p-5">
+        <h3 class="font-bold mb-3">Average risk by region</h3>
+        <canvas id="region-chart"></canvas>
+      </div>
+      <div class="bg-white rounded-xl border p-5">
+        <h3 class="font-bold mb-3">Average risk by category</h3>
+        <canvas id="category-chart"></canvas>
+      </div>
+      <div class="bg-white rounded-xl border p-5">
+        <h3 class="font-bold mb-3">Tenders by status</h3>
+        <canvas id="status-chart"></canvas>
+      </div>
+      <div class="bg-white rounded-xl border p-5">
+        <h3 class="font-bold mb-3">Top contractors by wins</h3>
+        <canvas id="winners-chart"></canvas>
+      </div>
+    </section>
+
+    <section class="mt-8 bg-white rounded-xl border p-5">
+      <h3 class="font-bold mb-3">Procurement activity over time (last 90 days)</h3>
+      <canvas id="trend-chart"></canvas>
+    </section>
+
+    <section class="mt-8 bg-white rounded-xl border p-5 overflow-x-auto">
+      <h3 class="font-bold mb-3">Regional drill-down</h3>
+      <table class="w-full text-sm">
+        <thead class="text-xs uppercase text-slate-600 bg-slate-100">
+          <tr>
+            <th class="text-left p-2">Region</th>
+            <th class="text-right p-2">Tenders</th>
+            <th class="text-right p-2">Bids</th>
+            <th class="text-right p-2">Contracts</th>
+            <th class="text-right p-2">Total awarded</th>
+            <th class="text-right p-2">Avg risk</th>
+            <th class="text-right p-2">High-risk bids</th>
+          </tr>
+        </thead>
+        <tbody id="region-rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    renderHeader(document.getElementById('hdr'));
+    (async () => {
+      const d = await api('/api/analytics/summary');
+
+      const kpi = (label, value, cls='text-indigo-600') =>
+        `<div class="bg-white rounded-xl border p-4 text-center">
+          <div class="text-3xl font-bold ${cls}">${value ?? 0}</div>
+          <div class="text-xs uppercase text-slate-500 tracking-wide mt-1">${label}</div>
+         </div>`;
+      document.getElementById('kpis').innerHTML = `
+        ${kpi('Tenders', d.total_tenders)}
+        ${kpi('Bids', d.total_bids)}
+        ${kpi('Contracts', d.total_contracts)}
+        ${kpi('Total awarded', fmtMoney(d.total_awarded))}
+        ${kpi('High-risk bids', d.high_risk_bids, 'text-rose-600')}
+      `;
+
+      const colors = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6'];
+
+      function bar(canvasId, obj, color) {
+        const labels = Object.keys(obj);
+        const values = Object.values(obj);
+        new Chart(document.getElementById(canvasId), {
+          type: 'bar',
+          data: { labels, datasets: [{ data: values, backgroundColor: color || '#6366f1' }] },
+          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+        });
+      }
+
+      bar('region-chart', d.avg_risk_by_region, '#6366f1');
+      bar('category-chart', d.avg_risk_by_category, '#06b6d4');
+
+      new Chart(document.getElementById('status-chart'), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(d.tenders_by_status),
+          datasets: [{ data: Object.values(d.tenders_by_status), backgroundColor: colors }],
+        },
+      });
+
+      new Chart(document.getElementById('winners-chart'), {
+        type: 'bar',
+        data: {
+          labels: d.top_winners.map(w => w.name),
+          datasets: [{ label: 'Wins', data: d.top_winners.map(w => w.wins), backgroundColor: '#10b981' }],
+        },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } } },
+      });
+    })().catch(e => alert(e.message));
+
+    // Trends + regional drill-down
+    (async () => {
+      const trends = await api('/api/analytics/trends?days=90');
+      new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: {
+          labels: trends.labels,
+          datasets: [
+            { label: 'Tenders created', data: trends.tenders_created, borderColor: '#6366f1', backgroundColor: 'transparent' },
+            { label: 'Bids submitted',  data: trends.bids_submitted,  borderColor: '#06b6d4', backgroundColor: 'transparent' },
+            { label: 'Contracts awarded', data: trends.contracts_awarded, borderColor: '#10b981', backgroundColor: 'transparent' },
+            { label: 'Avg bid risk',    data: trends.avg_risk,        borderColor: '#ef4444', backgroundColor: 'transparent', borderDash: [4,4] },
+          ],
+        },
+        options: { interaction: { mode: 'index', intersect: false } },
+      });
+
+      const regions = await api('/api/analytics/regions');
+      document.getElementById('region-rows').innerHTML = regions.map(r => `
+        <tr class="border-t">
+          <td class="p-2 font-semibold">${r.region}</td>
+          <td class="p-2 text-right">${r.tender_count}</td>
+          <td class="p-2 text-right">${r.bid_count}</td>
+          <td class="p-2 text-right">${r.contract_count}</td>
+          <td class="p-2 text-right">${fmtMoney(r.total_awarded)}</td>
+          <td class="p-2 text-right">${r.avg_risk == null ? '—' : r.avg_risk}</td>
+          <td class="p-2 text-right ${r.high_risk_bids ? 'text-rose-600 font-semibold' : ''}">${r.high_risk_bids}</td>
+        </tr>`).join('');
+    })().catch(e => console.error(e));
+  </script>
+</body>
+</html>

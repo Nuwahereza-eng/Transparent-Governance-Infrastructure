@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Public Projects — ProcureChain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <div id="hdr"></div>
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold">Public projects</h1>
+      <p class="text-slate-600 text-sm">
+        Every public tender, bid count, AI risk score and project progress —
+        no login required. This is what transparency looks like.
+      </p>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+          <tr>
+            <th class="text-left p-3">Project</th>
+            <th class="text-left p-3">Region</th>
+            <th class="text-right p-3">Budget</th>
+            <th class="text-left p-3">Status</th>
+            <th class="text-left p-3">Contractor</th>
+            <th class="text-right p-3">Awarded</th>
+            <th class="text-center p-3">Risk</th>
+            <th class="text-left p-3">Progress</th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="8" class="p-6 text-center text-slate-400">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    renderHeader(document.getElementById('hdr'));
+    (async () => {
+      const data = await api('/api/transparency/projects');
+      const rows = document.getElementById('rows');
+      if (!data.length) { rows.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-slate-400">No projects yet.</td></tr>'; return; }
+      rows.innerHTML = data.map(p => `
+        <tr class="border-t hover:bg-slate-50">
+          <td class="p-3">
+            <div class="font-semibold">${p.title}</div>
+            <div class="text-xs text-slate-500">${p.category}</div>
+          </td>
+          <td class="p-3">${p.region}</td>
+          <td class="p-3 text-right">${fmtMoney(p.budget)}</td>
+          <td class="p-3">${statusBadge(p.status)}</td>
+          <td class="p-3">${p.contractor || '<span class="text-slate-400">—</span>'}</td>
+          <td class="p-3 text-right">${p.contract_id ? `<a href="/contract.html?id=${p.contract_id}" class="text-indigo-600 underline">${fmtMoney(p.awarded_amount)}</a>` : fmtMoney(p.awarded_amount)}</td>
+          <td class="p-3 text-center">${p.avg_risk !== null ? riskBadgeFromScore(p.avg_risk) : '<span class="text-slate-400">—</span>'}</td>
+          <td class="p-3">${p.progress_status ? progressBar(p.progress_percent, p.progress_status) : '<span class="text-slate-400">—</span>'}</td>
+        </tr>`).join('');
+    })();
+
+    function riskBadgeFromScore(score) {
+      const level = score >= 60 ? 'High' : score >= 30 ? 'Medium' : 'Low';
+      return riskBadge(level, score);
+    }
+    function progressBar(pct, status) {
+      return `<div class="w-32">
+        <div class="text-xs text-slate-600 mb-0.5">${status} (${pct}%)</div>
+        <div class="bg-slate-200 rounded h-2"><div class="bg-indigo-500 h-2 rounded" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+  </script>
+</body>
+</html>

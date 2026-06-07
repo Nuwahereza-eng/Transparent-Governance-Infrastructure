@@ -1,0 +1,18 @@
+/* Tiny custom layer on top of Tailwind CDN. */
+.risk-low    { @apply bg-emerald-100 text-emerald-700; }
+.risk-medium { @apply bg-amber-100 text-amber-700; }
+.risk-high   { @apply bg-rose-100 text-rose-700; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hash {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  word-break: break-all;
+}

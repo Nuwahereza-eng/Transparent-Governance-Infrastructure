@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Audit Chain — ProcureChain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <div id="hdr"></div>
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Tamper-evident audit chain</h1>
+        <p class="text-sm text-slate-600">
+          Every critical action is appended as a SHA-256-linked entry.
+          One altered byte breaks the whole chain — the verifier below proves it.
+        </p>
+      </div>
+      <button id="verify" class="bg-indigo-600 text-white px-4 py-2 rounded font-semibold">Verify chain</button>
+    </div>
+
+    <div id="verify-result" class="mb-6"></div>
+
+    <div class="bg-white rounded-xl border overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+          <tr>
+            <th class="text-left p-3">#</th>
+            <th class="text-left p-3">Time</th>
+            <th class="text-left p-3">Actor</th>
+            <th class="text-left p-3">Action</th>
+            <th class="text-left p-3">Entity</th>
+            <th class="text-left p-3">Payload</th>
+            <th class="text-left p-3">Hash</th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="7" class="p-6 text-center text-slate-400">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    renderHeader(document.getElementById('hdr'));
+    document.getElementById('verify').onclick = verifyChain;
+
+    async function verifyChain() {
+      const r = await api('/api/audit/verify');
+      const el = document.getElementById('verify-result');
+      if (r.valid) {
+        el.innerHTML = `<div class="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded p-3">
+          ✅ Chain is valid. ${r.entries_checked} entries verified. Head: <span class="hash">${r.head}</span></div>`;
+      } else {
+        el.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-700 rounded p-3">
+          ❌ Chain BROKEN at entry ${r.broken_at}: ${r.reason}</div>`;
+      }
+    }
+
+    (async () => {
+      const rows = await api('/api/audit?limit=500');
+      const body = document.getElementById('rows');
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400">No entries.</td></tr>'; return; }
+      body.innerHTML = rows.map(r => `
+        <tr class="border-t align-top">
+          <td class="p-3 font-mono">${r.id}</td>
+          <td class="p-3 whitespace-nowrap">${fmtDate(r.timestamp)}</td>
+          <td class="p-3">${r.actor_email || '<span class="text-slate-400">system</span>'}</td>
+          <td class="p-3"><span class="badge bg-indigo-100 text-indigo-700">${r.action}</span></td>
+          <td class="p-3">${r.entity_type}#${r.entity_id ?? ''}</td>
+          <td class="p-3"><pre class="text-xs whitespace-pre-wrap max-w-xs">${escapeHtml(r.payload)}</pre></td>
+          <td class="p-3 hash" style="max-width:180px">${r.hash}</td>
+        </tr>`).join('');
+      verifyChain();
+    })();
+
+    function escapeHtml(s) { return (s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  </script>
+</body>
+</html>

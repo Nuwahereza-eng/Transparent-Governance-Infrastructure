@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Contract — ProcureChain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <div id="hdr"></div>
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+    <div id="banner" class="mb-6"></div>
+
+    <section class="grid md:grid-cols-3 gap-6 mb-8">
+      <div class="md:col-span-2 bg-white border rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold">Milestones</h2>
+          <button id="add-milestone" class="hidden bg-indigo-600 text-white px-3 py-1 rounded text-sm font-semibold">+ Add milestone</button>
+        </div>
+        <div id="milestones" class="space-y-2"><div class="text-slate-400 text-sm">Loading…</div></div>
+      </div>
+
+      <div class="bg-white border rounded-xl p-5">
+        <h2 class="font-bold mb-3">Budget</h2>
+        <div id="budget-summary"></div>
+        <div id="budget-tx" class="mt-4 text-xs"></div>
+        <button id="add-tx" class="hidden mt-3 w-full bg-indigo-600 text-white px-3 py-1.5 rounded text-sm font-semibold">+ Budget transaction</button>
+      </div>
+    </section>
+
+    <section class="bg-white border rounded-xl p-5 mb-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold">Evidence</h2>
+        <button id="add-evidence" class="hidden bg-indigo-600 text-white px-3 py-1 rounded text-sm font-semibold">+ Upload evidence</button>
+      </div>
+      <div id="evidence" class="grid sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
+    </section>
+
+    <section class="bg-white border rounded-xl p-5">
+      <h2 class="font-bold mb-3">Citizen feedback for this contract</h2>
+      <div id="feedback" class="text-sm"></div>
+    </section>
+  </main>
+
+  <!-- Generic modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+      <h2 id="m-title" class="font-bold text-lg mb-3"></h2>
+      <div id="m-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const user = getUser();
+    renderHeader(document.getElementById('hdr'));
+    const contractId = parseInt(new URLSearchParams(location.search).get('id'));
+    if (!contractId) { document.body.innerHTML = '<div class="p-6">Missing contract id</div>'; }
+
+    const isOfficer = user && ['officer','compliance_officer','admin'].includes(user.role);
+    const canEditEvidence = user && ['officer','compliance_officer','admin','contractor','auditor'].includes(user.role);
+
+    let contract = null;
+    let tender = null;
+
+    async function load() {
+      const contracts = await api('/api/contracts');
+      contract = contracts.find(c => c.id === contractId);
+      if (!contract) { document.body.innerHTML = '<div class="p-6">Contract not found</div>'; return; }
+      tender = await api('/api/tenders/' + contract.tender_id);
+
+      document.getElementById('banner').innerHTML = `
+        <div class="bg-white border rounded-xl p-5">
+          <div class="flex items-start justify-between flex-wrap gap-2">
+            <div>
+              <a href="/transparency.html" class="text-xs text-indigo-600">← public projects</a>
+              <h1 class="text-2xl font-bold mt-1">${tender.title}</h1>
+              <div class="text-sm text-slate-500">
+                ${tender.category} · ${tender.region} · contractor:
+                <b>${contract.contractor_name}</b>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-emerald-700">${fmtMoney(contract.awarded_amount)}</div>
+              <div class="text-xs text-slate-500">awarded ${fmtDate(contract.awarded_at)}</div>
+              <div class="mt-1">${statusBadge(contract.progress_status || 'in_progress')}</div>
+              <div class="mt-2 w-48 bg-slate-200 rounded h-2"><div class="bg-indigo-500 h-2 rounded" style="width:${contract.progress_percent}%"></div></div>
+              <div class="text-xs text-slate-500 mt-0.5">${contract.progress_percent}% complete</div>
+            </div>
+          </div>
+        </div>`;
+
+      if (isOfficer) {
+        document.getElementById('add-milestone').classList.remove('hidden');
+        document.getElementById('add-tx').classList.remove('hidden');
+      }
+      if (canEditEvidence) document.getElementById('add-evidence').classList.remove('hidden');
+
+      loadMilestones();
+      loadBudget();
+      loadEvidence();
+      loadFeedback();
+    }
+
+    async function loadMilestones() {
+      const ms = await api(`/api/contracts/${contractId}/milestones`);
+      const el = document.getElementById('milestones');
+      if (!ms.length) { el.innerHTML = '<div class="text-slate-400 text-sm">No milestones yet.</div>'; return; }
+      el.innerHTML = ms.map(m => `
+        <div class="border rounded p-3 ${m.completed_at?'bg-emerald-50 border-emerald-200':''}">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-semibold">${m.completed_at?'✅ ':''}${m.title}</div>
+              <div class="text-xs text-slate-500">
+                ${m.due_date?'due '+fmtDate(m.due_date):''}
+                ${m.completed_at?' · completed '+fmtDate(m.completed_at):''}
+              </div>
+              ${m.notes?`<div class="text-xs text-slate-600 mt-1 whitespace-pre-wrap">${escapeHtml(m.notes)}</div>`:''}
+            </div>
+            ${!m.completed_at && (isOfficer || (user && user.role==='contractor')) ?
+              `<button data-mid="${m.id}" class="complete bg-emerald-600 text-white px-3 py-1 rounded text-xs font-semibold">Mark complete</button>` : ''}
+          </div>
+        </div>`).join('');
+      el.querySelectorAll('.complete').forEach(b => b.onclick = async () => {
+        try {
+          await api(`/api/contracts/${contractId}/milestones/${b.dataset.mid}/complete`, {
+            method: 'POST', body: { notes: '' },
+          });
+          loadMilestones(); load();
+        } catch (e) { alert(e.message); }
+      });
+    }
+
+    async function loadBudget() {
+      const data = await api(`/api/contracts/${contractId}/budget`);
+      const s = data.summary;
+      document.getElementById('budget-summary').innerHTML = `
+        <div class="text-xs space-y-1">
+          <div class="flex justify-between"><span>Allocated</span><b>${fmtMoney(s.allocated)}</b></div>
+          <div class="flex justify-between"><span>Released</span><b>${fmtMoney(s.released)}</b></div>
+          <div class="flex justify-between"><span>Spent</span><b>${fmtMoney(s.spent)}</b></div>
+          <div class="flex justify-between text-slate-500"><span>Remaining</span><span>${fmtMoney(s.remaining)}</span></div>
+          <div class="mt-2 bg-slate-200 rounded h-2"><div class="bg-indigo-500 h-2 rounded" style="width:${Math.min(100,s.utilization_percent)}%"></div></div>
+          <div class="text-right text-slate-500">${s.utilization_percent}% utilized</div>
+        </div>`;
+      document.getElementById('budget-tx').innerHTML = `<div class="font-semibold mb-1">Transactions</div>` +
+        (data.transactions.length ? data.transactions.map(t => `
+          <div class="flex justify-between py-0.5 border-t">
+            <span class="badge ${t.kind==='allocation'?'bg-sky-100 text-sky-700':t.kind==='release'?'bg-amber-100 text-amber-700':'bg-rose-100 text-rose-700'}">${t.kind}</span>
+            <span>${fmtMoney(t.amount)}</span>
+          </div>
+          ${t.note ? `<div class="text-slate-500 pb-1">${escapeHtml(t.note)}</div>` : ''}`).join('')
+        : '<div class="text-slate-400">none yet</div>');
+    }
+
+    async function loadEvidence() {
+      const items = await api(`/api/contracts/${contractId}/evidence`);
+      const el = document.getElementById('evidence');
+      if (!items.length) { el.innerHTML = '<div class="text-slate-400 text-sm col-span-3">No evidence uploaded.</div>'; return; }
+      el.innerHTML = items.map(e => `
+        <a href="${e.url}" target="_blank" class="border rounded overflow-hidden hover:border-indigo-400 block">
+          ${e.content_type.startsWith('image/')
+            ? `<img src="${e.url}" alt="${escapeHtml(e.filename)}" class="w-full h-32 object-cover" />`
+            : `<div class="h-32 flex items-center justify-center bg-slate-100 text-slate-500 text-3xl">📄</div>`}
+          <div class="p-2 text-xs">
+            <div class="font-semibold truncate">${escapeHtml(e.filename)}</div>
+            <div class="text-slate-500">${(e.size/1024).toFixed(1)} KB · ${e.uploader_name || ''}</div>
+            ${e.caption?`<div class="text-slate-600 mt-1">${escapeHtml(e.caption)}</div>`:''}
+          </div>
+        </a>`).join('');
+    }
+
+    async function loadFeedback() {
+      const items = await api(`/api/feedback?contract_id=${contractId}`);
+      const el = document.getElementById('feedback');
+      if (!items.length) { el.innerHTML = '<div class="text-slate-400">No citizen reports for this contract.</div>'; return; }
+      el.innerHTML = items.map(f => `
+        <div class="border rounded p-3 mb-2">
+          <div class="flex justify-between items-center">
+            <span class="badge bg-slate-100">${f.category.replaceAll('_',' ')}</span>
+            ${feedbackStatusBadge(f.status)}
+          </div>
+          <div class="mt-1">${escapeHtml(f.message)}</div>
+          <div class="text-xs text-slate-500 mt-1">— ${f.is_anonymous?'<i>anonymous</i>':escapeHtml(f.reporter_label||'')} · ${fmtDate(f.created_at)}</div>
+        </div>`).join('');
+    }
+
+    function openModal(title, body) {
+      document.getElementById('m-title').textContent = title;
+      document.getElementById('m-body').innerHTML = body;
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('m-body').innerHTML = '';
+    }
+
+    document.getElementById('add-milestone').onclick = () => {
+      openModal('Add milestone', `
+        <form id="ms-form" class="space-y-2">
+          <input name="title" required placeholder="Title" class="w-full border rounded px-3 py-2" />
+          <input name="due_date" type="datetime-local" class="w-full border rounded px-3 py-2" />
+          <textarea name="notes" rows="2" placeholder="Notes" class="w-full border rounded px-3 py-2"></textarea>
+          <div class="flex justify-end gap-2"><button type="button" id="ms-cancel" class="px-3 py-1 border rounded">Cancel</button>
+            <button class="px-3 py-1 bg-indigo-600 text-white rounded font-semibold">Save</button></div>
+        </form>`);
+      document.getElementById('ms-cancel').onclick = closeModal;
+      document.getElementById('ms-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(e.target));
+        const body = { title: fd.title, notes: fd.notes };
+        if (fd.due_date) body.due_date = new Date(fd.due_date).toISOString();
+        try {
+          await api(`/api/contracts/${contractId}/milestones`, { method: 'POST', body });
+          closeModal(); loadMilestones();
+        } catch (err) { alert(err.message); }
+      };
+    };
+
+    document.getElementById('add-tx').onclick = () => {
+      openModal('Add budget transaction', `
+        <form id="tx-form" class="space-y-2">
+          <select name="kind" class="w-full border rounded px-3 py-2">
+            <option value="allocation">Allocation</option>
+            <option value="release">Release</option>
+            <option value="expense">Expense</option>
+          </select>
+          <input name="amount" type="number" min="1" step="any" required placeholder="Amount" class="w-full border rounded px-3 py-2" />
+          <input name="note" placeholder="Note" class="w-full border rounded px-3 py-2" />
+          <div class="flex justify-end gap-2"><button type="button" id="tx-cancel" class="px-3 py-1 border rounded">Cancel</button>
+            <button class="px-3 py-1 bg-indigo-600 text-white rounded font-semibold">Save</button></div>
+        </form>`);
+      document.getElementById('tx-cancel').onclick = closeModal;
+      document.getElementById('tx-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(e.target));
+        try {
+          await api(`/api/contracts/${contractId}/budget`, {
+            method: 'POST', body: { kind: fd.kind, amount: parseFloat(fd.amount), note: fd.note },
+          });
+          closeModal(); loadBudget();
+        } catch (err) { alert(err.message); }
+      };
+    };
+
+    document.getElementById('add-evidence').onclick = () => {
+      openModal('Upload evidence', `
+        <form id="ev-form" class="space-y-2">
+          <input name="file" type="file" required class="w-full" />
+          <input name="caption" placeholder="Caption (optional)" class="w-full border rounded px-3 py-2" />
+          <div class="flex justify-end gap-2"><button type="button" id="ev-cancel" class="px-3 py-1 border rounded">Cancel</button>
+            <button class="px-3 py-1 bg-indigo-600 text-white rounded font-semibold">Upload</button></div>
+          <p class="text-xs text-slate-500">Max 5 MB · images, PDF, docs.</p>
+        </form>`);
+      document.getElementById('ev-cancel').onclick = closeModal;
+      document.getElementById('ev-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          const headers = {};
+          if (getToken()) headers['Authorization'] = 'Bearer ' + getToken();
+          const res = await fetch(`/api/contracts/${contractId}/evidence`, {
+            method: 'POST', body: fd, headers,
+          });
+          if (!res.ok) throw new Error((await res.json()).detail || 'Upload failed');
+          closeModal(); loadEvidence();
+        } catch (err) { alert(err.message); }
+      };
+    };
+
+    function escapeHtml(s) {
+      return (s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    }
+
+    load();
+  </script>
+</body>
+</html>

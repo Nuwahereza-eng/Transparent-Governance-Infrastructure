@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProcureChain — Corruption-Resistant Procurement</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+  <header class="bg-gradient-to-r from-indigo-700 to-blue-600 text-white shadow">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+      <a href="/" class="text-xl font-bold tracking-tight flex items-center gap-2">
+        <span class="bg-white/20 rounded px-2 py-0.5 text-sm">⛓</span>
+        ProcureChain
+      </a>
+      <nav class="flex gap-3 text-sm items-center flex-wrap">
+        <a href="/transparency.html" class="hover:underline">Projects</a>
+        <a href="/analytics.html" class="hover:underline">Analytics</a>
+        <a href="/contractors.html" class="hover:underline">Contractors</a>
+        <a href="/feedback.html" class="hover:underline">Feedback</a>
+        <a href="/audit.html" class="hover:underline">Audit</a>
+        <a href="/opendata.html" class="hover:underline">Open Data</a>
+        <a href="/login.html" class="bg-white text-indigo-700 px-3 py-1 rounded font-semibold hover:bg-indigo-50">Sign in</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
+    <section class="text-center max-w-3xl mx-auto">
+      <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight">
+        Corruption is harder when every decision is
+        <span class="text-indigo-600">transparent</span>,
+        <span class="text-indigo-600">traceable</span> and
+        <span class="text-indigo-600">algorithmically verified.</span>
+      </h1>
+      <p class="mt-6 text-lg text-slate-600">
+        ProcureChain digitizes public procurement, auto-ranks bids,
+        flags suspicious patterns with AI, and stores every action on a
+        tamper-evident hash chain that any citizen can verify.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3 justify-center">
+        <a href="/transparency.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-lg shadow">
+          View public projects
+        </a>
+        <a href="/login.html" class="bg-white border border-slate-300 hover:bg-slate-100 px-5 py-3 rounded-lg font-semibold">
+          Officer / Contractor login
+        </a>
+      </div>
+    </section>
+
+    <section class="mt-16 grid md:grid-cols-3 gap-6">
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-2xl">🤖</div>
+        <h3 class="font-bold mt-2">AI Risk Engine</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Each bid is scored 0–100 with a plain-English explanation:
+          price deviation, contractor concentration, anomalies.
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-2xl">⛓</div>
+        <h3 class="font-bold mt-2">Hash-Chained Audit Log</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Every tender, bid, approval and award is appended to a SHA-256 chain.
+          One tampered byte breaks the entire chain.
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-2xl">🏛</div>
+        <h3 class="font-bold mt-2">4-Stage Approval Workflow</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Every tender passes department, financial, compliance and final
+          review — no one person can push a contract through alone.
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-2xl">📣</div>
+        <h3 class="font-bold mt-2">Citizen Oversight</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Anyone — anonymously if needed — can report concerns. Moderators
+          act on them and every action is on the chain.
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-2xl">💰</div>
+        <h3 class="font-bold mt-2">Budget Transparency</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Track allocation → release → spend per contract. Diversion is hard
+          when every transaction is published in real time.
+        </p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-2xl">📊</div>
+        <h3 class="font-bold mt-2">Open Data Portal</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Every dataset (tenders, bids, contracts, audit, contractors) is
+          downloadable as CSV or JSON for independent oversight.
+        </p>
+      </div>
+    </section>
+
+    <section id="live" class="mt-16 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-xl font-bold mb-4">Live system snapshot</h2>
+      <div id="snapshot" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div class="text-slate-400">Loading…</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-slate-900 text-slate-400 text-sm">
+    <div class="max-w-6xl mx-auto px-6 py-6 flex justify-between">
+      <span>ProcureChain MVP · Hackathon demo</span>
+      <a href="/api/audit/verify" class="hover:text-white" target="_blank">Verify chain →</a>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+  <script>
+    (async () => {
+      try {
+        const data = await api('/api/analytics/summary');
+        const el = document.getElementById('snapshot');
+        el.innerHTML = `
+          ${stat('Tenders', data.total_tenders)}
+          ${stat('Bids', data.total_bids)}
+          ${stat('Contracts awarded', data.total_contracts)}
+          ${stat('High-risk bids', data.high_risk_bids, 'text-rose-600')}
+        `;
+      } catch (e) {
+        document.getElementById('snapshot').innerHTML =
+          '<div class="col-span-4 text-rose-500">Backend unreachable.</div>';
+      }
+    })();
+    function stat(label, value, cls='text-indigo-600') {
+      return `<div class="p-4 bg-slate-50 rounded-lg">
+        <div class="text-3xl font-bold ${cls}">${value ?? 0}</div>
+        <div class="text-xs uppercase text-slate-500 tracking-wide mt-1">${label}</div>
+      </div>`;
+    }
+  </script>
+</body>
+</html>
