@@ -2,54 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Analytics — ProcureChain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <div id="hdr"></div>
   <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
-    <h1 class="text-2xl font-bold mb-6">Analytics</h1>
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold tracking-tight">Analytics</h1>
+      <p class="text-sm text-slate-500 mt-1">Cross-cutting metrics across the entire procurement lifecycle.</p>
+    </div>
 
-    <section id="kpis" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8"></section>
+    <section id="kpis" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div class="pc-stat"><span class="skeleton h-7 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+      <div class="pc-stat"><span class="skeleton h-7 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+      <div class="pc-stat"><span class="skeleton h-7 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+      <div class="pc-stat"><span class="skeleton h-7 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+      <div class="pc-stat"><span class="skeleton h-7 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+    </section>
 
     <section class="grid md:grid-cols-2 gap-6">
-      <div class="bg-white rounded-xl border p-5">
+      <div class="pc-card pc-card-pad">
         <h3 class="font-bold mb-3">Average risk by region</h3>
         <canvas id="region-chart"></canvas>
       </div>
-      <div class="bg-white rounded-xl border p-5">
+      <div class="pc-card pc-card-pad">
         <h3 class="font-bold mb-3">Average risk by category</h3>
         <canvas id="category-chart"></canvas>
       </div>
-      <div class="bg-white rounded-xl border p-5">
+      <div class="pc-card pc-card-pad">
         <h3 class="font-bold mb-3">Tenders by status</h3>
         <canvas id="status-chart"></canvas>
       </div>
-      <div class="bg-white rounded-xl border p-5">
+      <div class="pc-card pc-card-pad">
         <h3 class="font-bold mb-3">Top contractors by wins</h3>
         <canvas id="winners-chart"></canvas>
       </div>
     </section>
 
-    <section class="mt-8 bg-white rounded-xl border p-5">
+    <section class="mt-6 pc-card pc-card-pad">
       <h3 class="font-bold mb-3">Procurement activity over time (last 90 days)</h3>
       <canvas id="trend-chart"></canvas>
     </section>
 
-    <section class="mt-8 bg-white rounded-xl border p-5 overflow-x-auto">
-      <h3 class="font-bold mb-3">Regional drill-down</h3>
-      <table class="w-full text-sm">
-        <thead class="text-xs uppercase text-slate-600 bg-slate-100">
+    <section class="mt-6 pc-card overflow-x-auto">
+      <div class="p-5 pb-3"><h3 class="font-bold">Regional drill-down</h3></div>
+      <table class="pc-table">
+        <thead>
           <tr>
-            <th class="text-left p-2">Region</th>
-            <th class="text-right p-2">Tenders</th>
-            <th class="text-right p-2">Bids</th>
-            <th class="text-right p-2">Contracts</th>
-            <th class="text-right p-2">Total awarded</th>
-            <th class="text-right p-2">Avg risk</th>
-            <th class="text-right p-2">High-risk bids</th>
+            <th>Region</th>
+            <th class="text-right">Tenders</th>
+            <th class="text-right">Bids</th>
+            <th class="text-right">Contracts</th>
+            <th class="text-right">Total awarded</th>
+            <th class="text-right">Avg risk</th>
+            <th class="text-right">High-risk bids</th>
           </tr>
         </thead>
         <tbody id="region-rows"></tbody>
@@ -60,82 +70,96 @@
   <script src="/static/app.js"></script>
   <script>
     renderHeader(document.getElementById('hdr'));
+
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+    Chart.defaults.color = '#475569';
+    Chart.defaults.borderColor = '#e5e7eb';
+
     (async () => {
       const d = await api('/api/analytics/summary');
 
-      const kpi = (label, value, cls='text-indigo-600') =>
-        `<div class="bg-white rounded-xl border p-4 text-center">
-          <div class="text-3xl font-bold ${cls}">${value ?? 0}</div>
-          <div class="text-xs uppercase text-slate-500 tracking-wide mt-1">${label}</div>
+      const kpi = (label, value, tone='') =>
+        `<div class="pc-stat">
+          <div class="num ${tone}">${value ?? 0}</div>
+          <div class="lbl">${label}</div>
          </div>`;
       document.getElementById('kpis').innerHTML = `
         ${kpi('Tenders', d.total_tenders)}
         ${kpi('Bids', d.total_bids)}
-        ${kpi('Contracts', d.total_contracts)}
+        ${kpi('Contracts', d.total_contracts, 'ok')}
         ${kpi('Total awarded', fmtMoney(d.total_awarded))}
-        ${kpi('High-risk bids', d.high_risk_bids, 'text-rose-600')}
+        ${kpi('High-risk bids', d.high_risk_bids, 'danger')}
       `;
 
-      const colors = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6'];
+      // Single neutral palette: slate ramp + only-where-semantic green/red.
+      const SLATE = '#475569';
+      const SLATE_LIGHT = '#94a3b8';
+      const OK = '#059669';
+      const ERR = '#e11d48';
+      const slateRamp = ['#1e293b', '#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1'];
 
       function bar(canvasId, obj, color) {
         const labels = Object.keys(obj);
         const values = Object.values(obj);
         new Chart(document.getElementById(canvasId), {
           type: 'bar',
-          data: { labels, datasets: [{ data: values, backgroundColor: color || '#6366f1' }] },
-          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+          data: { labels, datasets: [{ data: values, backgroundColor: color || SLATE, borderRadius: 6, maxBarThickness: 36 }] },
+          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color:'#eef0f4' } }, x: { grid: { display:false } } } },
         });
       }
 
-      bar('region-chart', d.avg_risk_by_region, '#6366f1');
-      bar('category-chart', d.avg_risk_by_category, '#06b6d4');
+      bar('region-chart', d.avg_risk_by_region, SLATE);
+      bar('category-chart', d.avg_risk_by_category, SLATE);
 
       new Chart(document.getElementById('status-chart'), {
         type: 'doughnut',
         data: {
-          labels: Object.keys(d.tenders_by_status),
-          datasets: [{ data: Object.values(d.tenders_by_status), backgroundColor: colors }],
+          labels: Object.keys(d.tenders_by_status).map(s => s.replaceAll('_',' ')),
+          datasets: [{ data: Object.values(d.tenders_by_status), backgroundColor: slateRamp, borderWidth: 2, borderColor: '#fff' }],
         },
+        options: { plugins: { legend: { position: 'bottom' } }, cutout: '62%' },
       });
 
       new Chart(document.getElementById('winners-chart'), {
         type: 'bar',
         data: {
           labels: d.top_winners.map(w => w.name),
-          datasets: [{ label: 'Wins', data: d.top_winners.map(w => w.wins), backgroundColor: '#10b981' }],
+          datasets: [{ label: 'Wins', data: d.top_winners.map(w => w.wins), backgroundColor: SLATE, borderRadius: 6, maxBarThickness: 28 }],
         },
-        options: { indexAxis: 'y', plugins: { legend: { display: false } } },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#eef0f4' } }, y: { grid: { display: false } } } },
       });
-    })().catch(e => alert(e.message));
+    })().catch(e => toast(e.message, 'error'));
 
-    // Trends + regional drill-down
     (async () => {
+      const SLATE = '#475569';
+      const SLATE_LIGHT = '#94a3b8';
+      const OK = '#059669';
+      const ERR = '#e11d48';
       const trends = await api('/api/analytics/trends?days=90');
       new Chart(document.getElementById('trend-chart'), {
         type: 'line',
         data: {
           labels: trends.labels,
           datasets: [
-            { label: 'Tenders created', data: trends.tenders_created, borderColor: '#6366f1', backgroundColor: 'transparent' },
-            { label: 'Bids submitted',  data: trends.bids_submitted,  borderColor: '#06b6d4', backgroundColor: 'transparent' },
-            { label: 'Contracts awarded', data: trends.contracts_awarded, borderColor: '#10b981', backgroundColor: 'transparent' },
-            { label: 'Avg bid risk',    data: trends.avg_risk,        borderColor: '#ef4444', backgroundColor: 'transparent', borderDash: [4,4] },
+            { label: 'Tenders created', data: trends.tenders_created, borderColor: SLATE, backgroundColor: 'rgba(71,85,105,.08)', tension: .35, fill: true, borderWidth: 2, pointRadius: 0 },
+            { label: 'Bids submitted',  data: trends.bids_submitted,  borderColor: SLATE_LIGHT, backgroundColor: 'transparent', tension: .35, borderWidth: 2, pointRadius: 0 },
+            { label: 'Contracts awarded', data: trends.contracts_awarded, borderColor: OK, backgroundColor: 'transparent', tension: .35, borderWidth: 2, pointRadius: 0 },
+            { label: 'Avg bid risk',    data: trends.avg_risk,        borderColor: ERR, backgroundColor: 'transparent', tension: .35, borderWidth: 2, borderDash: [4,4], pointRadius: 0 },
           ],
         },
-        options: { interaction: { mode: 'index', intersect: false } },
+        options: { interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, scales: { y: { grid: { color:'#eef0f4' } }, x: { grid: { display:false } } } },
       });
 
       const regions = await api('/api/analytics/regions');
       document.getElementById('region-rows').innerHTML = regions.map(r => `
-        <tr class="border-t">
-          <td class="p-2 font-semibold">${r.region}</td>
-          <td class="p-2 text-right">${r.tender_count}</td>
-          <td class="p-2 text-right">${r.bid_count}</td>
-          <td class="p-2 text-right">${r.contract_count}</td>
-          <td class="p-2 text-right">${fmtMoney(r.total_awarded)}</td>
-          <td class="p-2 text-right">${r.avg_risk == null ? '—' : r.avg_risk}</td>
-          <td class="p-2 text-right ${r.high_risk_bids ? 'text-rose-600 font-semibold' : ''}">${r.high_risk_bids}</td>
+        <tr>
+          <td class="font-semibold">${escapeHtml(r.region)}</td>
+          <td class="text-right tabular-nums">${r.tender_count}</td>
+          <td class="text-right tabular-nums">${r.bid_count}</td>
+          <td class="text-right tabular-nums">${r.contract_count}</td>
+          <td class="text-right tabular-nums">${fmtMoney(r.total_awarded)}</td>
+          <td class="text-right tabular-nums">${r.avg_risk == null ? '—' : r.avg_risk}</td>
+          <td class="text-right tabular-nums ${r.high_risk_bids ? 'text-rose-600 font-semibold' : ''}">${r.high_risk_bids}</td>
         </tr>`).join('');
     })().catch(e => console.error(e));
   </script>

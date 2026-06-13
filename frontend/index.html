@@ -7,116 +7,127 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
-  <header class="bg-gradient-to-r from-indigo-700 to-blue-600 text-white shadow">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-3">
-      <a href="/" class="text-xl font-bold tracking-tight flex items-center gap-2">
-        <span class="bg-white/20 rounded px-2 py-0.5 text-sm">⛓</span>
-        ProcureChain
-      </a>
-      <nav class="flex gap-3 text-sm items-center flex-wrap">
-        <a href="/transparency.html" class="hover:underline">Projects</a>
-        <a href="/analytics.html" class="hover:underline">Analytics</a>
-        <a href="/contractors.html" class="hover:underline">Contractors</a>
-        <a href="/feedback.html" class="hover:underline">Feedback</a>
-        <a href="/audit.html" class="hover:underline">Audit</a>
-        <a href="/opendata.html" class="hover:underline">Open Data</a>
-        <a href="/login.html" class="bg-white text-indigo-700 px-3 py-1 rounded font-semibold hover:bg-indigo-50">Sign in</a>
-      </nav>
-    </div>
-  </header>
+<body class="text-slate-800 min-h-screen flex flex-col">
+  <div id="hdr"></div>
 
-  <main class="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
-    <section class="text-center max-w-3xl mx-auto">
-      <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight">
-        Corruption is harder when every decision is
-        <span class="text-indigo-600">transparent</span>,
-        <span class="text-indigo-600">traceable</span> and
-        <span class="text-indigo-600">algorithmically verified.</span>
-      </h1>
-      <p class="mt-6 text-lg text-slate-600">
-        ProcureChain digitizes public procurement, auto-ranks bids,
-        flags suspicious patterns with AI, and stores every action on a
-        tamper-evident hash chain that any citizen can verify.
-      </p>
-      <div class="mt-8 flex flex-wrap gap-3 justify-center">
-        <a href="/transparency.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-lg shadow">
-          View public projects
-        </a>
-        <a href="/login.html" class="bg-white border border-slate-300 hover:bg-slate-100 px-5 py-3 rounded-lg font-semibold">
-          Officer / Contractor login
-        </a>
+  <main class="flex-1 w-full">
+    <!-- Hero -->
+    <section class="pc-hero">
+      <div class="max-w-5xl mx-auto px-6 text-center relative">
+        <div class="pc-eyebrow mx-auto"><span class="pulse"></span> Live transparency · open data · hash-chained audit</div>
+        <h1 class="pc-headline mt-5">
+          Corruption is harder when every decision is
+          <em>transparent</em>, <em>traceable</em><br class="hidden md:block" />
+          and <em>algorithmically verified.</em>
+        </h1>
+        <p class="mt-6 text-lg text-slate-600 max-w-2xl mx-auto">
+          ProcureChain digitizes public procurement, auto-ranks bids, flags suspicious patterns
+          with AI, and stores every action on a tamper-evident hash chain that any citizen can verify.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3 justify-center">
+          <a href="/transparency.html" class="btn btn-primary">View public projects →</a>
+          <a href="/login.html" class="btn btn-secondary">Officer / Contractor login</a>
+        </div>
+        <div class="mt-10 text-xs text-slate-500 flex items-center justify-center gap-4 flex-wrap">
+          <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> SHA-256 audit chain</span>
+          <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> AI risk scoring</span>
+          <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> 4-stage approvals</span>
+          <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Open data exports</span>
+        </div>
       </div>
     </section>
 
-    <section class="mt-16 grid md:grid-cols-3 gap-6">
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="text-2xl">🤖</div>
-        <h3 class="font-bold mt-2">AI Risk Engine</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Each bid is scored 0–100 with a plain-English explanation:
-          price deviation, contractor concentration, anomalies.
-        </p>
-      </div>
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="text-2xl">⛓</div>
-        <h3 class="font-bold mt-2">Hash-Chained Audit Log</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Every tender, bid, approval and award is appended to a SHA-256 chain.
-          One tampered byte breaks the entire chain.
-        </p>
-      </div>
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="text-2xl">🏛</div>
-        <h3 class="font-bold mt-2">4-Stage Approval Workflow</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Every tender passes department, financial, compliance and final
-          review — no one person can push a contract through alone.
-        </p>
-      </div>
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="text-2xl">📣</div>
-        <h3 class="font-bold mt-2">Citizen Oversight</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Anyone — anonymously if needed — can report concerns. Moderators
-          act on them and every action is on the chain.
-        </p>
-      </div>
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="text-2xl">💰</div>
-        <h3 class="font-bold mt-2">Budget Transparency</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Track allocation → release → spend per contract. Diversion is hard
-          when every transaction is published in real time.
-        </p>
-      </div>
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="text-2xl">📊</div>
-        <h3 class="font-bold mt-2">Open Data Portal</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Every dataset (tenders, bids, contracts, audit, contractors) is
-          downloadable as CSV or JSON for independent oversight.
-        </p>
+    <!-- Live snapshot -->
+    <section id="live" class="max-w-6xl mx-auto px-6 -mt-4 mb-16">
+      <div class="pc-card pc-card-pad">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <h2 class="pc-section-title">Live system snapshot</h2>
+          <a href="/analytics.html" class="pc-link text-sm">Full analytics →</a>
+        </div>
+        <div id="snapshot" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="pc-stat"><span class="skeleton h-8 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+          <div class="pc-stat"><span class="skeleton h-8 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+          <div class="pc-stat"><span class="skeleton h-8 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+          <div class="pc-stat"><span class="skeleton h-8 w-16 mx-auto block"></span><div class="lbl mt-2">Loading</div></div>
+        </div>
       </div>
     </section>
 
-    <section id="live" class="mt-16 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-xl font-bold mb-4">Live system snapshot</h2>
-      <div id="snapshot" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-        <div class="text-slate-400">Loading…</div>
+    <!-- Features -->
+    <section class="max-w-6xl mx-auto px-6 mb-20">
+      <div class="text-center max-w-2xl mx-auto mb-10">
+        <h2 class="pc-section-title text-3xl">Built for accountability — by design.</h2>
+        <p class="pc-section-subtitle mt-2">Six core systems that make corruption costly, slow, and visible.</p>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="pc-feature">
+          <div class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <h3 class="font-bold">AI Risk Engine</h3>
+          <p class="text-sm text-slate-600 mt-1.5">Each bid is scored 0–100 with a plain-English explanation: price deviation, contractor concentration, anomalies.</p>
+        </div>
+        <div class="pc-feature">
+          <div class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <h3 class="font-bold">Hash-Chained Audit Log</h3>
+          <p class="text-sm text-slate-600 mt-1.5">Every tender, bid, approval and award is appended to a SHA-256 chain. One tampered byte breaks the entire chain.</p>
+        </div>
+        <div class="pc-feature">
+          <div class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <h3 class="font-bold">4-Stage Approval Workflow</h3>
+          <p class="text-sm text-slate-600 mt-1.5">Department → financial → compliance → final review. No single person can push a contract through alone.</p>
+        </div>
+        <div class="pc-feature">
+          <div class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3 class="font-bold">Citizen Oversight</h3>
+          <p class="text-sm text-slate-600 mt-1.5">Anyone — anonymously if needed — can report concerns. Moderator actions are all recorded on-chain.</p>
+        </div>
+        <div class="pc-feature">
+          <div class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+          </div>
+          <h3 class="font-bold">Budget Transparency</h3>
+          <p class="text-sm text-slate-600 mt-1.5">Track allocation → release → spend per contract. Diversion is hard when every transaction is published.</p>
+        </div>
+        <div class="pc-feature">
+          <div class="icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          </div>
+          <h3 class="font-bold">Open Data Portal</h3>
+          <p class="text-sm text-slate-600 mt-1.5">Every dataset (tenders, bids, contracts, audit, contractors) is downloadable as CSV or JSON.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="max-w-5xl mx-auto px-6 mb-20">
+      <div class="pc-card pc-card-pad text-center" style="background: var(--brand-800); color:#fff; border:0;">
+        <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">Trust by verification, not promises.</h2>
+        <p class="mt-2 text-slate-200 max-w-2xl mx-auto">Open the audit page and click <span class="pc-kbd" style="background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.20); color:#fff">Verify chain</span> — recompute every hash from genesis to head in your browser.</p>
+        <div class="mt-5 flex justify-center gap-3 flex-wrap">
+          <a href="/audit.html" class="btn" style="background:#fff; color:var(--brand-800)">Verify the chain</a>
+          <a href="/opendata.html" class="btn" style="color:#fff; background:transparent; border:1px solid rgba(255,255,255,.35)">Browse open data</a>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer class="bg-slate-900 text-slate-400 text-sm">
-    <div class="max-w-6xl mx-auto px-6 py-6 flex justify-between">
+  <footer class="pc-footer">
+    <div class="max-w-6xl mx-auto px-6 py-6 flex justify-between flex-wrap gap-2">
       <span>ProcureChain MVP · Hackathon demo</span>
-      <a href="/api/audit/verify" class="hover:text-white" target="_blank">Verify chain →</a>
+      <a href="/api/audit/verify" target="_blank">Verify chain →</a>
     </div>
   </footer>
 
   <script src="/static/app.js"></script>
   <script>
+    renderHeader(document.getElementById('hdr'));
     (async () => {
       try {
         const data = await api('/api/analytics/summary');
@@ -124,18 +135,18 @@
         el.innerHTML = `
           ${stat('Tenders', data.total_tenders)}
           ${stat('Bids', data.total_bids)}
-          ${stat('Contracts awarded', data.total_contracts)}
-          ${stat('High-risk bids', data.high_risk_bids, 'text-rose-600')}
+          ${stat('Contracts awarded', data.total_contracts, 'ok')}
+          ${stat('High-risk bids', data.high_risk_bids, 'danger')}
         `;
       } catch (e) {
         document.getElementById('snapshot').innerHTML =
-          '<div class="col-span-4 text-rose-500">Backend unreachable.</div>';
+          '<div class="col-span-2 md:col-span-4 pc-empty">Backend unreachable.</div>';
       }
     })();
-    function stat(label, value, cls='text-indigo-600') {
-      return `<div class="p-4 bg-slate-50 rounded-lg">
-        <div class="text-3xl font-bold ${cls}">${value ?? 0}</div>
-        <div class="text-xs uppercase text-slate-500 tracking-wide mt-1">${label}</div>
+    function stat(label, value, tone='') {
+      return `<div class="pc-stat">
+        <div class="num ${tone}">${value ?? 0}</div>
+        <div class="lbl">${label}</div>
       </div>`;
     }
   </script>

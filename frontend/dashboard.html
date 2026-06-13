@@ -2,67 +2,88 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard — ProcureChain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <div id="hdr"></div>
   <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-end justify-between mb-6 flex-wrap gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Dashboard</h1>
-        <p id="welcome" class="text-sm text-slate-500"></p>
+        <h1 class="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p id="welcome" class="text-sm text-slate-500 mt-1"></p>
       </div>
       <div id="actions" class="flex gap-2"></div>
     </div>
 
-    <section class="grid md:grid-cols-2 gap-6">
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-        <h2 class="font-bold mb-3">Tenders</h2>
-        <div id="tenders" class="space-y-3"><div class="text-slate-400 text-sm">Loading…</div></div>
+    <section class="grid lg:grid-cols-5 gap-6">
+      <div class="pc-card pc-card-pad lg:col-span-2">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold">Tenders</h2>
+          <span id="tender-count" class="text-xs text-slate-500"></span>
+        </div>
+        <div id="tenders" class="space-y-2.5">
+          <div class="border rounded-lg p-3"><span class="skeleton h-3 w-3/4 mb-2"></span><span class="skeleton h-2.5 w-1/2"></span></div>
+          <div class="border rounded-lg p-3"><span class="skeleton h-3 w-3/4 mb-2"></span><span class="skeleton h-2.5 w-1/2"></span></div>
+          <div class="border rounded-lg p-3"><span class="skeleton h-3 w-3/4 mb-2"></span><span class="skeleton h-2.5 w-1/2"></span></div>
+        </div>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div class="pc-card pc-card-pad lg:col-span-3">
         <h2 class="font-bold mb-3">Selected tender</h2>
-        <div id="detail" class="text-sm text-slate-500">Pick a tender on the left.</div>
+        <div id="detail" class="text-sm text-slate-500">
+          <div class="pc-empty">Pick a tender on the left.</div>
+        </div>
       </div>
     </section>
   </main>
 
   <!-- Create tender modal -->
-  <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
-      <h2 class="font-bold text-lg mb-3">New tender</h2>
-      <form id="tender-form" class="space-y-2">
-        <input name="title" placeholder="Title" required class="w-full border rounded px-3 py-2" />
-        <textarea name="description" placeholder="Description" rows="3" class="w-full border rounded px-3 py-2"></textarea>
+  <div id="modal" class="hidden pc-modal-backdrop">
+    <div class="pc-modal">
+      <h2 class="font-bold text-lg mb-1">New tender</h2>
+      <p class="text-sm text-slate-500 mb-4">Once created, the tender will enter the 4-stage approval workflow before bids can be received.</p>
+      <form id="tender-form" class="space-y-3">
+        <input name="title" placeholder="Title" required class="input" />
+        <textarea name="description" placeholder="Description" rows="3" class="input"></textarea>
         <div class="grid grid-cols-2 gap-2">
-          <input name="category" placeholder="Category (e.g. construction)" required class="border rounded px-3 py-2" />
-          <input name="region"   placeholder="Region (e.g. north)"          required class="border rounded px-3 py-2" />
+          <input name="category" placeholder="Category (e.g. construction)" required class="input" />
+          <input name="region"   placeholder="Region (e.g. north)" required class="input" />
         </div>
         <div class="grid grid-cols-2 gap-2">
-          <input name="budget"   type="number" min="1" step="any" placeholder="Budget" required class="border rounded px-3 py-2" />
-          <input name="deadline" type="datetime-local" required class="border rounded px-3 py-2" />
+          <input name="budget"   type="number" min="1" step="any" placeholder="Budget" required class="input" />
+          <input name="deadline" type="datetime-local" required class="input" />
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" id="modal-cancel" class="px-4 py-2 border rounded">Cancel</button>
-          <button class="px-4 py-2 bg-indigo-600 text-white rounded font-semibold">Create</button>
+          <button type="button" id="modal-cancel" class="btn btn-secondary">Cancel</button>
+          <button class="btn btn-primary">Create tender</button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- Bid modal -->
-  <div id="bid-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
-      <h2 class="font-bold text-lg mb-3">Submit bid</h2>
-      <form id="bid-form" class="space-y-2">
-        <input name="price" type="number" min="1" step="any" placeholder="Bid price" required class="w-full border rounded px-3 py-2" />
-        <input name="delivery_days" type="number" min="1" max="1095" placeholder="Delivery (days)" required class="w-full border rounded px-3 py-2" />
-        <textarea name="proposal" rows="4" placeholder="Proposal description" class="w-full border rounded px-3 py-2"></textarea>
+  <div id="bid-modal" class="hidden pc-modal-backdrop">
+    <div class="pc-modal">
+      <h2 class="font-bold text-lg mb-1">Submit bid</h2>
+      <p class="text-sm text-slate-500 mb-4">Bids are auto-scored by the AI risk engine the moment they are received.</p>
+      <form id="bid-form" class="space-y-3">
+        <label class="block">
+          <span class="input-label">Bid price</span>
+          <input name="price" type="number" min="1" step="any" placeholder="0" required class="input" />
+        </label>
+        <label class="block">
+          <span class="input-label">Delivery (days)</span>
+          <input name="delivery_days" type="number" min="1" max="1095" required class="input" />
+        </label>
+        <label class="block">
+          <span class="input-label">Proposal</span>
+          <textarea name="proposal" rows="4" placeholder="Approach, materials, team…" class="input"></textarea>
+        </label>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" id="bid-cancel" class="px-4 py-2 border rounded">Cancel</button>
-          <button class="px-4 py-2 bg-indigo-600 text-white rounded font-semibold">Submit bid</button>
+          <button type="button" id="bid-cancel" class="btn btn-secondary">Cancel</button>
+          <button class="btn btn-primary">Submit bid</button>
         </div>
       </form>
     </div>
@@ -74,12 +95,35 @@
     if (user) {
       renderHeader(document.getElementById('hdr'));
       document.getElementById('welcome').textContent =
-        `Signed in as ${user.email} (${user.role})`;
+        `Signed in as ${user.email} · role: ${user.role.replace('_',' ')}`;
 
       const actions = document.getElementById('actions');
+      const parts = [];
       if (user.role === 'officer' || user.role === 'admin') {
-        actions.innerHTML = `<button id="new-tender" class="bg-indigo-600 text-white px-4 py-2 rounded font-semibold">+ New tender</button>`;
-        document.getElementById('new-tender').onclick = () => toggleModal('modal', true);
+        parts.push(`<button id="new-tender" class="btn btn-primary">+ New tender</button>`);
+      }
+      if (user.role === 'admin') {
+        parts.push(`<button id="reset-demo" class="btn btn-ghost" title="Wipe DB and reseed demo data">↻ Reset demo</button>`);
+      }
+      actions.innerHTML = parts.join('');
+      const newBtn = document.getElementById('new-tender');
+      if (newBtn) newBtn.onclick = () => toggleModal('modal', true);
+      const resetBtn = document.getElementById('reset-demo');
+      if (resetBtn) {
+        resetBtn.onclick = async () => {
+          const ok = await confirmDialog({
+            title: 'Reset demo data?',
+            message: 'This wipes the database and re-seeds the original demo scenarios. All tenders, bids, feedback and audit entries created during the demo will be deleted.',
+            confirmLabel: 'Yes, reset',
+            danger: true,
+          });
+          if (!ok) return;
+          try {
+            await api('/api/admin/reset-demo', { method: 'POST' });
+            toast('Demo data reset.', 'success');
+            setTimeout(() => location.reload(), 600);
+          } catch (e) { toast(e.message, 'error'); }
+        };
       }
       load();
     }
@@ -89,16 +133,21 @@
     async function load() {
       const tenders = await api('/api/tenders');
       const list = document.getElementById('tenders');
-      if (!tenders.length) { list.innerHTML = '<div class="text-slate-400 text-sm">No tenders yet.</div>'; return; }
+      document.getElementById('tender-count').textContent = `${tenders.length} total`;
+      if (!tenders.length) {
+        list.innerHTML = '<div class="pc-empty">No tenders yet.</div>';
+        return;
+      }
       list.innerHTML = tenders.map(t => `
-        <button data-id="${t.id}" class="tender-row text-left w-full border border-slate-200 hover:border-indigo-400 rounded-lg p-3 ${t.id===selectedId?'border-indigo-500 bg-indigo-50':''}">
-          <div class="flex items-center justify-between">
-            <div class="font-semibold">${t.title}</div>
+        <button data-id="${t.id}" class="tender-row text-left w-full border rounded-xl p-3 transition hover:border-slate-400 hover:bg-slate-50
+          ${t.id===selectedId?'border-slate-700 bg-slate-100 ring-2 ring-slate-200':'border-slate-200'}">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold truncate">${escapeHtml(t.title)}</div>
             ${statusBadge(t.status)}
           </div>
           <div class="text-xs text-slate-500 mt-1">
-            ${t.category} · ${t.region} · budget ${fmtMoney(t.budget)} · ${t.bid_count} bid(s)
-            ${t.avg_risk !== null ? ' · avg risk ' + t.avg_risk : ''}
+            ${escapeHtml(t.category)} · ${escapeHtml(t.region)} · ${fmtMoney(t.budget)} · ${t.bid_count} bid(s)
+            ${t.avg_risk !== null ? ' · risk ' + t.avg_risk : ''}
             ${t.current_stage ? ' · awaiting ' + t.current_stage : ''}
           </div>
         </button>`).join('');
@@ -110,7 +159,7 @@
 
     async function loadDetail(id) {
       const detail = document.getElementById('detail');
-      detail.innerHTML = '<div class="text-slate-400 text-sm">Loading…</div>';
+      detail.innerHTML = `<div class="space-y-3">${skeletonLines(4)}</div>`;
       const [t, bids] = await Promise.all([
         api('/api/tenders/' + id),
         api(`/api/tenders/${id}/bids`),
@@ -122,48 +171,49 @@
       const awaitingApproval = t.status.startsWith('pending_');
 
       detail.innerHTML = `
-        <div class="border-b pb-3 mb-3">
-          <div class="flex items-start justify-between">
+        <div class="border-b pb-4 mb-4">
+          <div class="flex items-start justify-between flex-wrap gap-2">
             <div>
-              <div class="font-bold text-lg">${t.title}</div>
-              <div class="text-xs text-slate-500">${t.category} · ${t.region} · deadline ${fmtDate(t.deadline)}</div>
+              <div class="font-bold text-lg">${escapeHtml(t.title)}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(t.category)} · ${escapeHtml(t.region)} · deadline ${fmtDate(t.deadline)}</div>
             </div>
             ${statusBadge(t.status)}
           </div>
-          <p class="text-sm text-slate-600 mt-2">${t.description || ''}</p>
-          <div class="text-sm mt-2"><b>Budget:</b> ${fmtMoney(t.budget)}
-            ${t.awarded_to ? ` · <b>Awarded to:</b> ${t.awarded_to} (${fmtMoney(t.awarded_amount)})` : ''}
+          ${t.description ? `<p class="text-sm text-slate-600 mt-3">${escapeHtml(t.description)}</p>` : ''}
+          <div class="text-sm mt-3 flex flex-wrap gap-x-5 gap-y-1">
+            <span><b class="text-slate-500 font-semibold">Budget:</b> ${fmtMoney(t.budget)}</span>
+            ${t.awarded_to ? `<span><b class="text-slate-500 font-semibold">Awarded:</b> ${escapeHtml(t.awarded_to)} (${fmtMoney(t.awarded_amount)})</span>` : ''}
           </div>
-          ${awaitingApproval ? `<div class="mt-2 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded p-2">
+          ${awaitingApproval ? `<div class="mt-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-3">
             ⏳ This tender is in the <b>${t.current_stage}</b> review stage. It cannot accept bids until the approval workflow is complete.
-            <a href="/approvals.html" class="underline">Open queue →</a>
+            <a href="/approvals.html" class="underline ml-1">Open queue →</a>
           </div>` : ''}
-          ${t.contract_id ? `<div class="mt-2"><a href="/contract.html?id=${t.contract_id}" class="text-indigo-600 underline text-sm">Open contract →</a></div>` : ''}
-          <div class="mt-3 flex gap-2 flex-wrap">
-            ${canBid ? `<button id="open-bid" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm font-semibold">Submit bid</button>` : ''}
-            ${canManage && bids.length ? `<button id="evaluate" class="bg-amber-500 text-white px-3 py-1 rounded text-sm font-semibold">Evaluate (re-rank)</button>` : ''}
-            ${canManage ? `<button id="cancel" class="bg-slate-200 px-3 py-1 rounded text-sm">Cancel tender</button>` : ''}
+          ${t.contract_id ? `<div class="mt-3"><a href="/contract.html?id=${t.contract_id}" class="pc-link text-sm">Open contract →</a></div>` : ''}
+          <div class="mt-4 flex gap-2 flex-wrap">
+            ${canBid ? `<button id="open-bid" class="btn btn-primary btn-sm">Submit bid</button>` : ''}
+            ${canManage && bids.length ? `<button id="evaluate" class="btn btn-warn btn-sm">Re-rank bids</button>` : ''}
+            ${canManage ? `<button id="cancel" class="btn btn-secondary btn-sm">Cancel tender</button>` : ''}
           </div>
         </div>
-        <h3 class="font-semibold mb-2">Bids (${bids.length})</h3>
+        <h3 class="font-semibold mb-2 flex items-center gap-2">Bids <span class="badge no-dot bg-slate-100 text-slate-600 border-slate-200">${bids.length}</span></h3>
         <div class="space-y-2">
           ${bids.map(b => `
-            <div class="border rounded p-3 ${b.status==='awarded'?'border-emerald-400 bg-emerald-50':'border-slate-200'}">
-              <div class="flex items-center justify-between">
+            <div class="border rounded-xl p-3 ${b.status==='awarded'?'border-emerald-400 bg-emerald-50/60':'border-slate-200 hover:border-slate-300'}">
+              <div class="flex items-center justify-between flex-wrap gap-2">
                 <div class="font-semibold">
-                  ${b.rank ? `#${b.rank}` : ''} ${b.contractor_name || 'Contractor #' + b.contractor_id}
-                  ${b.status==='awarded' ? '<span class="badge bg-emerald-200 text-emerald-800 ml-1">awarded</span>' : ''}
+                  ${b.rank ? `<span class="text-slate-500 mr-1">#${b.rank}</span>` : ''} ${escapeHtml(b.contractor_name || 'Contractor #' + b.contractor_id)}
+                  ${b.status==='awarded' ? '<span class="badge bg-emerald-100 text-emerald-800 border-emerald-200 ml-1 no-dot">awarded</span>' : ''}
                 </div>
                 <div class="flex items-center gap-2">
                   ${riskBadge(b.risk_level, b.risk_score)}
-                  <span class="font-bold">${fmtMoney(b.price)}</span>
+                  <span class="font-bold tabular-nums">${fmtMoney(b.price)}</span>
                 </div>
               </div>
               <div class="text-xs text-slate-500 mt-1">${b.delivery_days} days · submitted ${fmtDate(b.created_at)}</div>
-              ${b.proposal ? `<div class="text-sm mt-1">${b.proposal}</div>` : ''}
-              ${b.risk_explanation ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-slate-600">Why this score?</summary><pre class="whitespace-pre-wrap mt-1 text-slate-700">${b.risk_explanation}</pre></details>` : ''}
-              ${isOfficer && t.status !== 'awarded' && t.status !== 'cancelled' ? `<button data-bid="${b.id}" class="award mt-2 bg-emerald-600 text-white text-xs px-3 py-1 rounded font-semibold">Award contract to this bid</button>` : ''}
-            </div>`).join('') || '<div class="text-slate-400 text-sm">No bids yet.</div>'}
+              ${b.proposal ? `<div class="text-sm mt-1.5 text-slate-700">${escapeHtml(b.proposal)}</div>` : ''}
+              ${b.risk_explanation ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-slate-600 select-none">Why this score?</summary><pre class="whitespace-pre-wrap mt-1.5 text-slate-700 bg-slate-50 p-2 rounded">${escapeHtml(b.risk_explanation)}</pre></details>` : ''}
+              ${isOfficer && t.status !== 'awarded' && t.status !== 'cancelled' ? `<div class="mt-2"><button data-bid="${b.id}" class="award btn btn-success btn-xs">Award contract to this bid</button></div>` : ''}
+            </div>`).join('') || '<div class="pc-empty">No bids yet.</div>'}
         </div>`;
 
       const ob = document.getElementById('open-bid');
@@ -171,22 +221,23 @@
 
       const ev = document.getElementById('evaluate');
       if (ev) ev.onclick = async () => {
-        try { await api(`/api/tenders/${id}/evaluate`, { method: 'POST', body: '{}' }); loadDetail(id); load(); }
-        catch (e) { alert(e.message); }
+        try { await api(`/api/tenders/${id}/evaluate`, { method: 'POST', body: '{}' }); toast('Bids re-ranked.', 'success'); loadDetail(id); load(); }
+        catch (e) { toast(e.message, 'error'); }
       };
       const cn = document.getElementById('cancel');
       if (cn) cn.onclick = async () => {
-        if (!confirm('Cancel this tender?')) return;
-        try { await api(`/api/tenders/${id}/cancel`, { method: 'POST', body: '{}' }); loadDetail(id); load(); }
-        catch (e) { alert(e.message); }
+        if (!await confirmDialog({ title:'Cancel this tender?', message:'This action will be recorded on the audit chain.', confirmLabel:'Cancel tender', danger:true })) return;
+        try { await api(`/api/tenders/${id}/cancel`, { method: 'POST', body: '{}' }); toast('Tender cancelled.', 'info'); loadDetail(id); load(); }
+        catch (e) { toast(e.message, 'error'); }
       };
       detail.querySelectorAll('.award').forEach(btn => {
         btn.onclick = async () => {
-          if (!confirm('Award this contract? This will be permanently recorded on the audit chain.')) return;
+          if (!await confirmDialog({ title:'Award contract?', message:'This will be permanently recorded on the audit chain.', confirmLabel:'Award contract' })) return;
           try {
             await api(`/api/tenders/${id}/award/${btn.dataset.bid}`, { method: 'POST', body: '{}' });
+            toast('Contract awarded.', 'success');
             loadDetail(id); load();
-          } catch (e) { alert(e.message); }
+          } catch (e) { toast(e.message, 'error'); }
         };
       });
     }
@@ -196,6 +247,10 @@
     }
     document.getElementById('modal-cancel').onclick = () => toggleModal('modal', false);
     document.getElementById('bid-cancel').onclick   = () => toggleModal('bid-modal', false);
+    [['modal','tender-form'],['bid-modal','bid-form']].forEach(([m]) => {
+      const el = document.getElementById(m);
+      el.addEventListener('click', e => { if (e.target === el) toggleModal(m, false); });
+    });
 
     document.getElementById('tender-form').onsubmit = async (e) => {
       e.preventDefault();
@@ -206,8 +261,9 @@
         await api('/api/tenders', { method: 'POST', body: fd });
         toggleModal('modal', false);
         e.target.reset();
+        toast('Tender created. It will enter the approval workflow.', 'success');
         load();
-      } catch (err) { alert(err.message); }
+      } catch (err) { toast(err.message, 'error'); }
     };
 
     document.getElementById('bid-form').onsubmit = async (e) => {
@@ -220,8 +276,9 @@
         await api(`/api/tenders/${selectedId}/bids`, { method: 'POST', body: fd });
         toggleModal('bid-modal', false);
         e.target.reset();
+        toast('Bid submitted.', 'success');
         loadDetail(selectedId); load();
-      } catch (err) { alert(err.message); }
+      } catch (err) { toast(err.message, 'error'); }
     };
   </script>
 </body>

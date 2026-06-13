@@ -2,26 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open Data — ProcureChain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    /* Open-data download control — a single segmented control,
+       always full-card-width so it can never overflow. */
+    .dl-group {
+      display: flex;
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+    }
+    .dl-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 8px;
+      font-size: .85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background .15s ease, color .15s ease;
+      white-space: nowrap;
+    }
+    .dl-csv {
+      background: #1e293b;
+      color: #ffffff;
+    }
+    .dl-csv:hover { background: #0f172a; }
+    .dl-json {
+      background: #ffffff;
+      color: #1e293b;
+      border-left: 1px solid #cbd5e1;
+    }
+    .dl-json:hover { background: #f1f5f9; }
+    .dl-icon {
+      font-size: 1rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <div id="hdr"></div>
-  <main class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
-    <h1 class="text-2xl font-bold mb-1">Open data portal</h1>
-    <p class="text-sm text-slate-600 mb-6">
-      Independent oversight starts with open data. Every public dataset is
-      available as CSV or JSON, ready to import into Excel, Google Sheets,
-      Python, R, or any BI tool.
-    </p>
-    <div id="grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-    <div class="mt-10 bg-white border rounded-xl p-5">
-      <h2 class="font-bold mb-2">Programmatic access</h2>
-      <pre class="bg-slate-900 text-slate-100 text-xs rounded p-3 overflow-x-auto"><code>curl -O http://localhost:8000/api/opendata/tenders.csv
-curl -O http://localhost:8000/api/opendata/contracts.json
-curl    http://localhost:8000/api/opendata/audit.json</code></pre>
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold tracking-tight">Open data portal</h1>
+      <p class="text-sm text-slate-600 mt-1 max-w-3xl">
+        Independent oversight starts with open data. Every public dataset is available as CSV or JSON,
+        ready to import into Excel, Google Sheets, Python, R, or any BI tool.
+      </p>
     </div>
+
+    <div id="grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
   </main>
 
   <script src="/static/app.js"></script>
@@ -35,20 +71,29 @@ curl    http://localhost:8000/api/opendata/audit.json</code></pre>
       audit:      { title: 'Audit log',   desc: 'Complete hash-chained event log.' },
       feedback:   { title: 'Feedback',    desc: 'Citizen reports and their moderation status.' },
     };
+    document.getElementById('grid').innerHTML =
+      Array.from({length:6}, () => `<div class="pc-card pc-card-pad">${skeletonLines(2)}</div>`).join('');
+
     (async () => {
       const idx = await api('/api/opendata');
       document.getElementById('grid').innerHTML = idx.datasets.map(d => {
         const m = meta[d] || { title: d, desc: '' };
-        return `<div class="bg-white border rounded-xl p-5">
-          <h3 class="font-bold">${m.title}</h3>
-          <p class="text-xs text-slate-500 mt-1">${m.desc}</p>
-          <div class="mt-3 flex gap-2">
-            <a class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded font-semibold" href="/api/opendata/${d}.csv">Download CSV</a>
-            <a class="px-3 py-1.5 text-sm bg-slate-200 rounded" href="/api/opendata/${d}.json">JSON</a>
+        return `<div class="pc-card pc-card-pad pc-card-hover flex flex-col">
+          <div>
+            <h3 class="font-bold leading-tight">${m.title}</h3>
+            <p class="text-sm text-slate-500 mt-1">${m.desc}</p>
+          </div>
+          <div class="mt-4 dl-group">
+            <a class="dl-btn dl-csv" href="/api/opendata/${d}.csv" download>
+              <span>CSV</span>
+            </a>
+            <a class="dl-btn dl-json" href="/api/opendata/${d}.json" target="_blank" rel="noopener">
+              <span>JSON</span>
+            </a>
           </div>
         </div>`;
       }).join('');
-    })();
+    })().catch(e => toast(e.message, 'error'));
   </script>
 </body>
 </html>

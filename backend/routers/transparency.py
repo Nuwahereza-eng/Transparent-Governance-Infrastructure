@@ -8,9 +8,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from audit import chain
+from auth import require_roles
 from database import get_db
-from models import AuditLog, Bid, Contract, Tender, TenderStatus, User
-from schemas import AuditOut
+from models import (
+    AuditAnchor, AuditLog, Bid, Contract, Role, Tender, TenderStatus, User,
+)
+from schemas import (
+    AnchorPublish, AuditAnchorOut, AuditAnchorState, AuditOut,
+)
 
 router = APIRouter(prefix="/api", tags=["transparency"])
 
@@ -29,6 +34,97 @@ def list_audit(limit: int = 200, db: Session = Depends(get_db)):
 @router.get("/audit/verify")
 def verify_audit(db: Session = Depends(get_db)):
     return chain.verify(db)
+
+
+# ---------- Public anchors (tamper-evidence) ----------
+def _anchor_out(a: AuditAnchor) -> AuditAnchorOut:
+    return AuditAnchorOut(
+        id=a.id, created_at=a.created_at,
+        head_hash=a.head_hash, entries_count=a.entries_count,
+        published_by_name=a.published_by.full_name if a.published_by else None,
+        note=a.note or "", external_url=a.external_url,
+    )
+
+
+@router.get("/audit/anchors", response_model=list[AuditAnchorOut])
+def list_anchors(limit: int = 50, db: Session = Depends(get_db)):
+    """Public list of anchor commitments — each row is a point-in-time
+    cryptographic fingerprint of the entire audit chain. Compare a freshly
+    recomputed head against the latest anchor: if they differ, the local DB
+    has been tampered with."""
+    rows = (
+        db.query(AuditAnchor)
+        .order_by(AuditAnchor.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [_anchor_out(a) for a in rows]
+
+
+@router.get("/audit/anchor", response_model=AuditAnchorState)
+def anchor_state(db: Session = Depends(get_db)):
+    """Current chain state + last published anchor + drift between them."""
+    head = chain.get_last_hash(db)
+    entries = db.query(func.count(AuditLog.id)).scalar() or 0
+    last = (
+        db.query(AuditAnchor)
+        .order_by(AuditAnchor.id.desc())
+        .first()
+    )
+    drift = entries - (last.entries_count if last else 0)
+    in_sync = bool(last and last.head_hash == head)
+    return AuditAnchorState(
+        current_head=head,
+        current_entries=entries,
+        last_anchor=_anchor_out(last) if last else None,
+        drift_since_last=max(drift, 0),
+        in_sync=in_sync,
+    )
+
+
+@router.post("/audit/anchor", response_model=AuditAnchorOut)
+def publish_anchor(
+    payload: AnchorPublish | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.admin, Role.auditor)),
+):
+    """Publish the current chain head as a new anchor.
+
+    Real-world deployment: a CI job (e.g. GitHub Actions) calls this
+    endpoint daily, then commits the returned hash to a public Git repo so
+    later tampering becomes externally verifiable."""
+    head = chain.get_last_hash(db)
+    entries = db.query(func.count(AuditLog.id)).scalar() or 0
+    last = (
+        db.query(AuditAnchor)
+        .order_by(AuditAnchor.id.desc())
+        .first()
+    )
+    if last and last.head_hash == head:
+        raise HTTPException(
+            400,
+            "Chain head is unchanged since the last anchor — nothing new to publish.",
+        )
+    note = (payload.note or "").strip() if payload else ""
+    external_url = (payload.external_url or "").strip() if payload else ""
+    anchor = AuditAnchor(
+        head_hash=head, entries_count=entries,
+        published_by_id=user.id, note=note,
+        external_url=external_url or None,
+    )
+    db.add(anchor)
+    db.commit()
+    db.refresh(anchor)
+    # The anchor itself is also chain-logged — meta-evidence.
+    chain.append(
+        db, actor=user, action="audit.anchor.publish",
+        entity_type="anchor", entity_id=anchor.id,
+        payload={
+            "head_hash": head, "entries_count": entries,
+            "note": note, "external_url": external_url or None,
+        },
+    )
+    return _anchor_out(anchor)
 
 
 @router.get("/analytics/summary")

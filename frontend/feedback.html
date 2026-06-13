@@ -2,62 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Citizen Feedback — ProcureChain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <div id="hdr"></div>
-  <main class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
-    <h1 class="text-2xl font-bold mb-1">Citizen feedback &amp; reports</h1>
-    <p class="text-sm text-slate-600 mb-6">
-      Anyone can report concerns, observations, or evidence about public projects.
-      Anonymous reporting is supported. Moderators review and resolve each report,
-      and the full chain of actions is logged on the audit ledger.
-    </p>
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold tracking-tight">Citizen feedback &amp; reports</h1>
+      <p class="text-sm text-slate-600 mt-1 max-w-3xl">
+        Anyone can report concerns, observations, or evidence about public projects.
+        Anonymous reporting is supported. Moderators review and resolve each report,
+        and every action is logged on the audit ledger.
+      </p>
+    </div>
 
-    <div class="grid md:grid-cols-3 gap-6">
+    <div class="grid lg:grid-cols-3 gap-6">
       <!-- Submit form -->
-      <div class="md:col-span-1 bg-white border rounded-xl p-5 h-fit">
-        <h2 class="font-bold mb-3">Submit a report</h2>
-        <form id="form" class="space-y-2">
+      <div class="lg:col-span-1 pc-card pc-card-pad h-fit">
+        <h2 class="font-bold mb-1">Submit a report</h2>
+        <p class="text-xs text-slate-500 mb-4">Stay logged out and leave the display name blank to file anonymously.</p>
+        <form id="form" class="space-y-3">
           <div class="grid grid-cols-2 gap-2">
-            <input name="tender_id" type="number" placeholder="Tender # (optional)" class="border rounded px-3 py-2" />
-            <input name="contract_id" type="number" placeholder="Contract # (optional)" class="border rounded px-3 py-2" />
+            <input name="tender_id"   type="number" placeholder="Tender # (optional)"   class="input" />
+            <input name="contract_id" type="number" placeholder="Contract # (optional)" class="input" />
           </div>
-          <select name="category" class="w-full border rounded px-3 py-2">
+          <select name="category" class="input">
             <option value="general">General concern</option>
             <option value="suspicious_award">Suspicious award</option>
             <option value="progress_check">Progress check</option>
             <option value="quality_issue">Quality issue</option>
             <option value="conflict_of_interest">Conflict of interest</option>
           </select>
-          <input name="reporter_label" placeholder="Display name (optional)" class="w-full border rounded px-3 py-2" />
-          <textarea name="message" rows="5" required minlength="5" placeholder="What did you observe?" class="w-full border rounded px-3 py-2"></textarea>
-          <input name="evidence_url" placeholder="Evidence URL (optional)" class="w-full border rounded px-3 py-2" />
-          <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded">
-            Submit report
-          </button>
+          <input name="reporter_label" placeholder="Display name (optional)" class="input" />
+          <textarea name="message" rows="5" required minlength="5" placeholder="What did you observe?" class="input"></textarea>
+          <input name="evidence_url" placeholder="Evidence URL (optional)" class="input" />
+          <button class="btn btn-primary w-full">Submit report</button>
           <p id="msg" class="text-sm"></p>
         </form>
-        <p class="text-xs text-slate-500 mt-3">
-          Tip: leave display name blank and stay logged out to submit anonymously.
-        </p>
       </div>
 
       <!-- Recent reports -->
-      <div class="md:col-span-2 bg-white border rounded-xl p-5">
-        <div class="flex items-center justify-between mb-3">
+      <div class="lg:col-span-2 pc-card pc-card-pad">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 class="font-bold">Recent reports</h2>
-          <select id="filter" class="border rounded px-2 py-1 text-sm">
-            <option value="">All</option>
+          <select id="filter" class="input" style="width:auto">
+            <option value="">All statuses</option>
             <option value="pending">Pending</option>
             <option value="under_review">Under review</option>
             <option value="resolved">Resolved</option>
             <option value="dismissed">Dismissed</option>
           </select>
         </div>
-        <div id="list" class="space-y-3"><div class="text-slate-400 text-sm">Loading…</div></div>
+        <div id="list" class="space-y-3"></div>
       </div>
     </div>
   </main>
@@ -68,6 +67,9 @@
     const user = getUser();
     const MOD_ROLES = ['officer','compliance_officer','auditor','admin'];
     const canModerate = user && MOD_ROLES.includes(user.role);
+
+    document.getElementById('list').innerHTML =
+      `<div class="border rounded-lg p-3">${skeletonLines(2)}</div>`.repeat(3);
 
     document.getElementById('form').onsubmit = async (e) => {
       e.preventDefault();
@@ -81,9 +83,11 @@
         await api('/api/feedback', { method: 'POST', body });
         e.target.reset();
         document.getElementById('msg').innerHTML = '<span class="text-emerald-600">Report submitted. Thank you.</span>';
+        toast('Report submitted.', 'success');
         load();
       } catch (err) {
         document.getElementById('msg').innerHTML = `<span class="text-rose-600">${err.message}</span>`;
+        toast(err.message, 'error');
       }
     };
 
@@ -94,23 +98,23 @@
       const qs = status ? '?status=' + status : '';
       const items = await api('/api/feedback' + qs);
       const list = document.getElementById('list');
-      if (!items.length) { list.innerHTML = '<div class="text-slate-400 text-sm">No reports.</div>'; return; }
+      if (!items.length) { list.innerHTML = '<div class="pc-empty">No reports.</div>'; return; }
       list.innerHTML = items.map(f => `
-        <div class="border rounded p-3">
+        <div class="border rounded-xl p-4 hover:border-slate-300 transition">
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-2 text-sm">
-              <span class="badge bg-slate-100 text-slate-700">${f.category.replaceAll('_',' ')}</span>
+            <div class="flex items-center gap-2 text-sm flex-wrap">
+              <span class="badge bg-slate-100 text-slate-700 border-slate-200">${escapeHtml(f.category.replaceAll('_',' '))}</span>
               ${feedbackStatusBadge(f.status)}
               ${f.tender_id ? `<span class="text-xs text-slate-500">tender #${f.tender_id}</span>` : ''}
-              ${f.contract_id ? `<span class="text-xs text-slate-500">contract #${f.contract_id}</span>` : ''}
+              ${f.contract_id ? `<span class="text-xs text-slate-500">· contract #${f.contract_id}</span>` : ''}
             </div>
             <span class="text-xs text-slate-400">${fmtDate(f.created_at)}</span>
           </div>
-          <div class="mt-2 text-sm">${escapeHtml(f.message)}</div>
-          ${f.evidence_url ? `<a href="${f.evidence_url}" target="_blank" class="text-xs text-indigo-600 underline">evidence link</a>` : ''}
-          <div class="text-xs text-slate-500 mt-1">
+          <div class="mt-2 text-sm whitespace-pre-wrap">${escapeHtml(f.message)}</div>
+          ${f.evidence_url ? `<a href="${escapeHtml(f.evidence_url)}" target="_blank" rel="noopener" class="pc-link text-xs">evidence link →</a>` : ''}
+          <div class="text-xs text-slate-500 mt-2">
             — ${f.is_anonymous ? '<i>anonymous</i>' : escapeHtml(f.reporter_label || ('user #' + f.reporter_id))}
-            ${f.moderator_note ? `<div class="mt-1 text-slate-700"><b>Moderator:</b> ${escapeHtml(f.moderator_note)}</div>` : ''}
+            ${f.moderator_note ? `<div class="mt-2 bg-slate-50 border border-slate-200 rounded p-2 text-slate-700"><b>Moderator:</b> ${escapeHtml(f.moderator_note)}</div>` : ''}
           </div>
           ${canModerate ? renderModBar(f) : ''}
         </div>`).join('');
@@ -118,11 +122,11 @@
     }
 
     function renderModBar(f) {
-      return `<div class="mt-2 flex flex-wrap gap-2 items-center text-xs">
-        <input id="note-${f.id}" placeholder="Moderator note…" class="border rounded px-2 py-1 flex-1 min-w-[150px]" />
-        ${['under_review','resolved','dismissed'].map(s =>
-          `<button data-mod="${f.id}" data-status="${s}" class="px-2 py-1 rounded bg-slate-200 hover:bg-slate-300">${s.replace('_',' ')}</button>`
-        ).join('')}
+      return `<div class="mt-3 flex flex-wrap gap-2 items-center text-xs border-t pt-3">
+        <input id="note-${f.id}" placeholder="Moderator note…" class="input flex-1 min-w-[180px]" style="padding:6px 10px; font-size:.8rem" />
+        <button data-mod="${f.id}" data-status="under_review" class="btn btn-secondary btn-xs">Under review</button>
+        <button data-mod="${f.id}" data-status="resolved" class="btn btn-success btn-xs">Resolve</button>
+        <button data-mod="${f.id}" data-status="dismissed" class="btn btn-ghost btn-xs">Dismiss</button>
       </div>`;
     }
 
@@ -132,12 +136,9 @@
         await api(`/api/feedback/${id}/moderate`, {
           method: 'POST', body: { status, moderator_note: note },
         });
+        toast('Moderation saved.', 'success');
         load();
-      } catch (e) { alert(e.message); }
-    }
-
-    function escapeHtml(s) {
-      return (s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      } catch (e) { toast(e.message, 'error'); }
     }
 
     load();

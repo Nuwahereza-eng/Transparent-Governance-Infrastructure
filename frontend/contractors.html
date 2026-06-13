@@ -2,36 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Contractors — ProcureChain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <div id="hdr"></div>
   <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
-    <h1 class="text-2xl font-bold mb-1">Contractor intelligence</h1>
-    <p class="text-sm text-slate-600 mb-6">
-      Public performance history for every registered contractor.
-      Reputation is computed from win-rate, completion-rate, average AI risk
-      score at award, average project progress and outstanding citizen reports.
-    </p>
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold tracking-tight">Contractor intelligence</h1>
+      <p class="text-sm text-slate-600 mt-1 max-w-3xl">
+        Public performance history for every registered contractor. Reputation is computed from
+        win-rate, completion-rate, average AI risk score at award, project progress, and outstanding citizen reports.
+      </p>
+    </div>
 
-    <div class="bg-white rounded-xl border overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+    <div class="pc-card overflow-x-auto">
+      <table class="pc-table">
+        <thead>
           <tr>
-            <th class="text-left p-3">Contractor</th>
-            <th class="text-right p-3">Bids</th>
-            <th class="text-right p-3">Wins</th>
-            <th class="text-right p-3">Completed</th>
-            <th class="text-right p-3">Total awarded</th>
-            <th class="text-right p-3">Avg risk at award</th>
-            <th class="text-right p-3">Avg progress</th>
-            <th class="text-right p-3">Open reports</th>
-            <th class="text-center p-3">Reputation</th>
+            <th>Contractor</th>
+            <th class="text-right">Bids</th>
+            <th class="text-right">Wins</th>
+            <th class="text-right">Completed</th>
+            <th class="text-right">Total awarded</th>
+            <th class="text-right">Avg risk</th>
+            <th class="text-right">Avg progress</th>
+            <th class="text-right">Open reports</th>
+            <th class="text-center">Reputation</th>
           </tr>
         </thead>
-        <tbody id="rows"><tr><td colspan="9" class="p-6 text-center text-slate-400">Loading…</td></tr></tbody>
+        <tbody id="rows"></tbody>
       </table>
     </div>
   </main>
@@ -39,24 +41,26 @@
   <script src="/static/app.js"></script>
   <script>
     renderHeader(document.getElementById('hdr'));
+    document.getElementById('rows').innerHTML = skeletonRows(9, 5);
+
     (async () => {
       const data = await api('/api/contractors');
       const rows = document.getElementById('rows');
-      if (!data.length) { rows.innerHTML = '<tr><td colspan="9" class="p-6 text-center text-slate-400">No contractors yet.</td></tr>'; return; }
+      if (!data.length) { rows.innerHTML = '<tr><td colspan="9"><div class="pc-empty">No contractors yet.</div></td></tr>'; return; }
       rows.innerHTML = data.map(c => `
-        <tr class="border-t hover:bg-slate-50">
-          <td class="p-3">
-            <div class="font-semibold">${c.full_name}</div>
-            <div class="text-xs text-slate-500">${c.organization || ''}</div>
+        <tr>
+          <td>
+            <div class="font-semibold">${escapeHtml(c.full_name)}</div>
+            <div class="text-xs text-slate-500">${escapeHtml(c.organization || '')}</div>
           </td>
-          <td class="p-3 text-right">${c.bids_submitted}</td>
-          <td class="p-3 text-right">${c.contracts_won}</td>
-          <td class="p-3 text-right">${c.contracts_completed}</td>
-          <td class="p-3 text-right">${fmtMoney(c.total_awarded)}</td>
-          <td class="p-3 text-right">${c.average_risk == null ? '—' : c.average_risk}</td>
-          <td class="p-3 text-right">${c.average_progress == null ? '—' : c.average_progress + '%'}</td>
-          <td class="p-3 text-right ${c.pending_feedback > 0 ? 'text-rose-600 font-semibold' : ''}">${c.pending_feedback}</td>
-          <td class="p-3 text-center">${reputationBadge(c.reputation_level, c.reputation_score)}</td>
+          <td class="text-right tabular-nums">${c.bids_submitted}</td>
+          <td class="text-right tabular-nums">${c.contracts_won}</td>
+          <td class="text-right tabular-nums">${c.contracts_completed}</td>
+          <td class="text-right tabular-nums">${fmtMoney(c.total_awarded)}</td>
+          <td class="text-right tabular-nums">${c.average_risk == null ? '—' : c.average_risk}</td>
+          <td class="text-right tabular-nums">${c.average_progress == null ? '—' : c.average_progress + '%'}</td>
+          <td class="text-right tabular-nums ${c.pending_feedback > 0 ? 'text-rose-600 font-semibold' : ''}">${c.pending_feedback}</td>
+          <td class="text-center">${reputationBadge(c.reputation_level, c.reputation_score)}</td>
         </tr>`).join('');
     })().catch(e => {
       document.getElementById('rows').innerHTML = `<tr><td colspan="9" class="p-6 text-center text-rose-600">${e.message}</td></tr>`;

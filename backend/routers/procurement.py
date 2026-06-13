@@ -11,7 +11,8 @@ from auth import get_current_user, require_roles
 from database import get_db
 from models import Bid, BidStatus, Contract, Role, Tender, TenderStatus, User
 from schemas import (
-    BidCreate, BidOut, ContractOut, ProgressUpdate, TenderCreate, TenderOut,
+    AwardRequest, BidCreate, BidOut, ContractOut, ProgressUpdate,
+    TenderCreate, TenderOut,
 )
 
 router = APIRouter(prefix="/api", tags=["procurement"])
@@ -45,6 +46,23 @@ def _bid_out(b: Bid) -> BidOut:
         status=b.status, risk_score=b.risk_score, risk_level=b.risk_level,
         risk_explanation=b.risk_explanation, rank=b.rank,
         composite_score=b.composite_score, created_at=b.created_at,
+    )
+
+
+def _contract_out(c: Contract, bid: Bid | None = None) -> ContractOut:
+    contractor_name = None
+    if c.contractor:
+        contractor_name = c.contractor.full_name
+    elif bid and bid.contractor:
+        contractor_name = bid.contractor.full_name
+    return ContractOut(
+        id=c.id, tender_id=c.tender_id, bid_id=c.bid_id,
+        contractor_id=c.contractor_id,
+        contractor_name=contractor_name,
+        awarded_amount=c.awarded_amount, awarded_at=c.awarded_at,
+        progress_status=c.progress_status, progress_percent=c.progress_percent,
+        override_justification=c.override_justification,
+        override_rank=c.override_rank,
     )
 
 
@@ -200,6 +218,7 @@ def evaluate_tender(
 def award_contract(
     tender_id: int,
     bid_id: int,
+    payload: AwardRequest | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(Role.officer, Role.admin)),
 ):
@@ -215,14 +234,26 @@ def award_contract(
     if bid.rank is None:
         risk.rerank_tender(db, t)
         db.refresh(bid)
+
+    justification = (payload.justification or "").strip() if payload else ""
+    override_rank: int | None = None
     if bid.rank != 1:
-        # Awarding a non-top bid is allowed but logged loudly — the chain
-        # exposes the deviation forever.
+        # Awarding a non-top bid is allowed but requires a written reason
+        # that is permanently chain-logged.
+        if len(justification) < 30:
+            raise HTTPException(
+                400,
+                "A written justification of at least 30 characters is required "
+                "when awarding a non-top-ranked bid. The reason will be "
+                "permanently recorded on the public audit chain.",
+            )
+        override_rank = bid.rank
         chain.append(
             db, actor=user, action="bid.award.override", entity_type="bid", entity_id=bid.id,
             payload={
                 "tender_id": tender_id, "awarded_rank": bid.rank,
                 "risk_score": bid.risk_score, "price": bid.price,
+                "justification": justification,
                 "warning": "Top-ranked bid was not selected.",
             },
         )
@@ -230,6 +261,8 @@ def award_contract(
     contract = Contract(
         tender_id=tender_id, bid_id=bid.id, contractor_id=bid.contractor_id,
         awarded_amount=bid.price,
+        override_justification=justification if override_rank is not None else None,
+        override_rank=override_rank,
     )
     db.add(contract)
     bid.status = BidStatus.awarded
@@ -257,29 +290,14 @@ def award_contract(
             "risk_score": bid.risk_score, "rank": bid.rank,
         },
     )
-    return ContractOut(
-        id=contract.id, tender_id=contract.tender_id, bid_id=contract.bid_id,
-        contractor_id=contract.contractor_id,
-        contractor_name=bid.contractor.full_name if bid.contractor else None,
-        awarded_amount=contract.awarded_amount, awarded_at=contract.awarded_at,
-        progress_status=contract.progress_status, progress_percent=contract.progress_percent,
-    )
+    return _contract_out(contract, bid=bid)
 
 
 # ---------- Contracts ----------
 @router.get("/contracts", response_model=list[ContractOut])
 def list_contracts(db: Session = Depends(get_db)):
     contracts = db.query(Contract).order_by(Contract.awarded_at.desc()).all()
-    return [
-        ContractOut(
-            id=c.id, tender_id=c.tender_id, bid_id=c.bid_id,
-            contractor_id=c.contractor_id,
-            contractor_name=c.contractor.full_name if c.contractor else None,
-            awarded_amount=c.awarded_amount, awarded_at=c.awarded_at,
-            progress_status=c.progress_status, progress_percent=c.progress_percent,
-        )
-        for c in contracts
-    ]
+    return [_contract_out(c) for c in contracts]
 
 
 @router.post("/contracts/{contract_id}/progress", response_model=ContractOut)
@@ -301,10 +319,4 @@ def update_progress(
         db, actor=user, action="contract.progress", entity_type="contract", entity_id=c.id,
         payload={"status": c.progress_status, "percent": c.progress_percent},
     )
-    return ContractOut(
-        id=c.id, tender_id=c.tender_id, bid_id=c.bid_id,
-        contractor_id=c.contractor_id,
-        contractor_name=c.contractor.full_name if c.contractor else None,
-        awarded_amount=c.awarded_amount, awarded_at=c.awarded_at,
-        progress_status=c.progress_status, progress_percent=c.progress_percent,
-    )
+    return _contract_out(c)

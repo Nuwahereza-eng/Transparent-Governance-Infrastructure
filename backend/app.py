@@ -13,8 +13,8 @@ from config import DATA_DIR
 from database import Base, engine
 from rate_limit import limiter
 from routers import (
-    approvals, auth_router, contractors, contracts_router,
-    feedback, opendata, procurement, transparency,
+    admin, approvals, auth_router, contractors, contracts_router,
+    feedback, opendata, procurement, receipts, transparency,
 )
 
 # Import models so SQLAlchemy registers them before create_all.
@@ -45,10 +45,12 @@ app.include_router(auth_router.router)
 app.include_router(procurement.router)
 app.include_router(approvals.router)
 app.include_router(contracts_router.router)
+app.include_router(receipts.router)
 app.include_router(feedback.router)
 app.include_router(contractors.router)
 app.include_router(transparency.router)
 app.include_router(opendata.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health")

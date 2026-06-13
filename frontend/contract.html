@@ -2,49 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Contract — ProcureChain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <div id="hdr"></div>
   <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
     <div id="banner" class="mb-6"></div>
 
     <section class="grid md:grid-cols-3 gap-6 mb-8">
-      <div class="md:col-span-2 bg-white border rounded-xl p-5">
+      <div class="md:col-span-2 pc-card pc-card-pad">
         <div class="flex items-center justify-between mb-3">
           <h2 class="font-bold">Milestones</h2>
-          <button id="add-milestone" class="hidden bg-indigo-600 text-white px-3 py-1 rounded text-sm font-semibold">+ Add milestone</button>
+          <button id="add-milestone" class="hidden btn btn-primary btn-sm">+ Add milestone</button>
         </div>
         <div id="milestones" class="space-y-2"><div class="text-slate-400 text-sm">Loading…</div></div>
       </div>
 
-      <div class="bg-white border rounded-xl p-5">
+      <div class="pc-card pc-card-pad">
         <h2 class="font-bold mb-3">Budget</h2>
         <div id="budget-summary"></div>
         <div id="budget-tx" class="mt-4 text-xs"></div>
-        <button id="add-tx" class="hidden mt-3 w-full bg-indigo-600 text-white px-3 py-1.5 rounded text-sm font-semibold">+ Budget transaction</button>
+        <button id="add-tx" class="hidden mt-4 btn btn-primary btn-sm w-full">+ Budget transaction</button>
       </div>
     </section>
 
-    <section class="bg-white border rounded-xl p-5 mb-8">
+    <section class="pc-card pc-card-pad mb-6">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-bold">Evidence</h2>
-        <button id="add-evidence" class="hidden bg-indigo-600 text-white px-3 py-1 rounded text-sm font-semibold">+ Upload evidence</button>
+        <button id="add-evidence" class="hidden btn btn-primary btn-sm">+ Upload evidence</button>
       </div>
       <div id="evidence" class="grid sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
     </section>
 
-    <section class="bg-white border rounded-xl p-5">
+    <section class="pc-card pc-card-pad mb-6">
+      <div class="flex items-start justify-between gap-3 flex-wrap mb-2">
+        <div>
+          <h2 class="font-bold">Delivery proof — beneficiary receipts</h2>
+          <p class="text-xs text-slate-500 mt-0.5 max-w-2xl">
+            Each beneficiary (or a field officer alongside them) snaps a photo
+            with the item received. Geo-stamped, hash-chained, publicly visible.
+            Anyone can add one — no login required.
+          </p>
+        </div>
+        <button id="add-receipt" class="btn btn-primary btn-sm">Record a receipt</button>
+      </div>
+      <div id="receipt-flags" class="my-3 space-y-2"></div>
+      <div id="receipt-stats" class="text-xs text-slate-500 mb-3"></div>
+      <div id="receipts" class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+    </section>
+
+    <section class="pc-card pc-card-pad">
       <h2 class="font-bold mb-3">Citizen feedback for this contract</h2>
       <div id="feedback" class="text-sm"></div>
     </section>
   </main>
 
   <!-- Generic modal -->
-  <div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+  <div id="modal" class="hidden pc-modal-backdrop">
+    <div class="pc-modal">
       <h2 id="m-title" class="font-bold text-lg mb-3"></h2>
       <div id="m-body"></div>
     </div>
@@ -68,27 +86,79 @@
       contract = contracts.find(c => c.id === contractId);
       if (!contract) { document.body.innerHTML = '<div class="p-6">Contract not found</div>'; return; }
       tender = await api('/api/tenders/' + contract.tender_id);
+      // Pull awarded bid details to compute AI rank-override risk highlights.
+      const bids = await api(`/api/tenders/${tender.id}/bids`);
+      const awardedBid = bids.find(b => b.id === contract.bid_id);
 
-      document.getElementById('banner').innerHTML = `
-        <div class="bg-white border rounded-xl p-5">
-          <div class="flex items-start justify-between flex-wrap gap-2">
-            <div>
-              <a href="/transparency.html" class="text-xs text-indigo-600">← public projects</a>
-              <h1 class="text-2xl font-bold mt-1">${tender.title}</h1>
-              <div class="text-sm text-slate-500">
-                ${tender.category} · ${tender.region} · contractor:
-                <b>${contract.contractor_name}</b>
-              </div>
-            </div>
-            <div class="text-right">
-              <div class="text-2xl font-bold text-emerald-700">${fmtMoney(contract.awarded_amount)}</div>
-              <div class="text-xs text-slate-500">awarded ${fmtDate(contract.awarded_at)}</div>
-              <div class="mt-1">${statusBadge(contract.progress_status || 'in_progress')}</div>
-              <div class="mt-2 w-48 bg-slate-200 rounded h-2"><div class="bg-indigo-500 h-2 rounded" style="width:${contract.progress_percent}%"></div></div>
-              <div class="text-xs text-slate-500 mt-0.5">${contract.progress_percent}% complete</div>
+      // Build a "risk highlights" panel — visible when the contract has notable
+      // deviations from the AI ranking or tender budget.
+      const flags = [];
+      if (contract.awarded_amount > tender.budget) {
+        const pct = Math.round(100 * (contract.awarded_amount - tender.budget) / tender.budget);
+        flags.push({
+          tone: 'err',
+          title: 'Awarded above tender budget',
+          detail: `Contract value is <b>${fmtMoney(contract.awarded_amount)}</b> — ${pct}% above the published budget of ${fmtMoney(tender.budget)}.`,
+        });
+      }
+      if (awardedBid && awardedBid.rank && awardedBid.rank > 1) {
+        const reason = (contract.override_justification || '').trim();
+        const reasonHtml = reason
+          ? `<div class="mt-1 text-xs text-slate-600">Officer's reason on record: <i>"${escapeHtml(reason)}"</i></div>`
+          : `<div class="mt-1 text-xs text-rose-700">No justification on record for this override.</div>`;
+        flags.push({
+          tone: 'warn',
+          title: `AI ranked this bid #${awardedBid.rank} — officer override`,
+          detail: `The procurement engine ranked another bid as best value, but this bid was awarded. The deviation is permanently recorded on the audit chain.${reasonHtml}`,
+        });
+      }
+      if (awardedBid && (awardedBid.risk_score || 0) >= 40) {
+        flags.push({
+          tone: 'err',
+          title: `Awarded bid scored ${Math.round(awardedBid.risk_score)} / 100 risk (${awardedBid.risk_level})`,
+          detail: (awardedBid.risk_explanation || '').replace(/^•\s*/, '').split(/\n/).join(' · '),
+        });
+      }
+
+      const riskHtml = flags.length ? `
+        <div class="pc-card pc-card-pad mt-4 border-l-4" style="border-left-color:#dc2626;background:#fff7f7;">
+          <div class="flex items-start gap-3">
+            <div class="flex-1">
+              <div class="font-semibold text-slate-900">AI risk highlights for this contract</div>
+              <div class="text-xs text-slate-500 mt-0.5">Auto-detected on award — every deviation is permanently logged on the audit chain.</div>
+              <ul class="mt-3 space-y-2 text-sm">
+                ${flags.map(f => `<li class="flex items-start gap-2">
+                  <span class="badge no-dot ${f.tone === 'err' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${escapeHtml(f.title)}</span>
+                  <span class="text-slate-700">${f.detail}</span>
+                </li>`).join('')}
+              </ul>
+              <div class="mt-3"><a href="/audit.html" class="pc-link text-xs">Inspect on audit chain →</a></div>
             </div>
           </div>
-        </div>`;
+        </div>` : '';
+
+      document.getElementById('banner').innerHTML = `
+        <div class="pc-card pc-card-pad">
+          <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start">
+            <div class="min-w-0">
+              <a href="/transparency.html" class="pc-link text-xs">← public projects</a>
+              <h1 class="text-2xl font-bold mt-1 tracking-tight">${escapeHtml(tender.title)}</h1>
+              <div class="text-sm text-slate-500 mt-1">
+                ${escapeHtml(tender.category)} · ${escapeHtml(tender.region)} · contractor:
+                <b class="text-slate-700">${escapeHtml(contract.contractor_name)}</b>
+              </div>
+              ${tender.description ? `<p class="text-sm text-slate-600 mt-3 max-w-2xl">${escapeHtml(tender.description)}</p>` : ''}
+            </div>
+            <div class="lg:text-right lg:min-w-[14rem]">
+              <div class="text-3xl font-extrabold ${contract.awarded_amount > tender.budget ? 'text-rose-700' : 'text-emerald-700'} tracking-tight tabular-nums">${fmtMoney(contract.awarded_amount)}</div>
+              <div class="text-xs text-slate-500">awarded ${fmtDate(contract.awarded_at)} · budget ${fmtMoney(tender.budget)}</div>
+              <div class="mt-2">${statusBadge(contract.progress_status || 'in_progress')}</div>
+              <div class="mt-3 pc-progress"><span style="width:${Math.min(100, contract.progress_percent)}%"></span></div>
+              <div class="text-xs text-slate-500 mt-1">${contract.progress_percent}% complete</div>
+            </div>
+          </div>
+        </div>
+        ${riskHtml}`;
 
       if (isOfficer) {
         document.getElementById('add-milestone').classList.remove('hidden');
@@ -99,26 +169,30 @@
       loadMilestones();
       loadBudget();
       loadEvidence();
+      loadReceipts();
       loadFeedback();
     }
 
     async function loadMilestones() {
       const ms = await api(`/api/contracts/${contractId}/milestones`);
       const el = document.getElementById('milestones');
-      if (!ms.length) { el.innerHTML = '<div class="text-slate-400 text-sm">No milestones yet.</div>'; return; }
+      if (!ms.length) { el.innerHTML = '<div class="pc-empty">No milestones yet.</div>'; return; }
       el.innerHTML = ms.map(m => `
-        <div class="border rounded p-3 ${m.completed_at?'bg-emerald-50 border-emerald-200':''}">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="font-semibold">${m.completed_at?'✅ ':''}${m.title}</div>
-              <div class="text-xs text-slate-500">
+        <div class="border rounded-xl p-3 ${m.completed_at?'bg-emerald-50 border-emerald-200':'border-slate-200'}">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="min-w-0">
+              <div class="font-semibold flex items-center gap-2">
+                ${m.completed_at?'<span class="text-emerald-700 font-semibold">done</span>':'<span class="text-slate-400">pending</span>'}
+                ${escapeHtml(m.title)}
+              </div>
+              <div class="text-xs text-slate-500 mt-0.5">
                 ${m.due_date?'due '+fmtDate(m.due_date):''}
                 ${m.completed_at?' · completed '+fmtDate(m.completed_at):''}
               </div>
-              ${m.notes?`<div class="text-xs text-slate-600 mt-1 whitespace-pre-wrap">${escapeHtml(m.notes)}</div>`:''}
+              ${m.notes?`<div class="text-xs text-slate-600 mt-1.5 whitespace-pre-wrap">${escapeHtml(m.notes)}</div>`:''}
             </div>
             ${!m.completed_at && (isOfficer || (user && user.role==='contractor')) ?
-              `<button data-mid="${m.id}" class="complete bg-emerald-600 text-white px-3 py-1 rounded text-xs font-semibold">Mark complete</button>` : ''}
+              `<button data-mid="${m.id}" class="complete btn btn-success btn-xs">Mark complete</button>` : ''}
           </div>
         </div>`).join('');
       el.querySelectorAll('.complete').forEach(b => b.onclick = async () => {
@@ -126,8 +200,9 @@
           await api(`/api/contracts/${contractId}/milestones/${b.dataset.mid}/complete`, {
             method: 'POST', body: { notes: '' },
           });
+          toast('Milestone marked complete.', 'success');
           loadMilestones(); load();
-        } catch (e) { alert(e.message); }
+        } catch (e) { toast(e.message, 'error'); }
       });
     }
 
@@ -135,53 +210,120 @@
       const data = await api(`/api/contracts/${contractId}/budget`);
       const s = data.summary;
       document.getElementById('budget-summary').innerHTML = `
-        <div class="text-xs space-y-1">
-          <div class="flex justify-between"><span>Allocated</span><b>${fmtMoney(s.allocated)}</b></div>
-          <div class="flex justify-between"><span>Released</span><b>${fmtMoney(s.released)}</b></div>
-          <div class="flex justify-between"><span>Spent</span><b>${fmtMoney(s.spent)}</b></div>
-          <div class="flex justify-between text-slate-500"><span>Remaining</span><span>${fmtMoney(s.remaining)}</span></div>
-          <div class="mt-2 bg-slate-200 rounded h-2"><div class="bg-indigo-500 h-2 rounded" style="width:${Math.min(100,s.utilization_percent)}%"></div></div>
-          <div class="text-right text-slate-500">${s.utilization_percent}% utilized</div>
+        <div class="text-xs space-y-1.5">
+          <div class="flex justify-between"><span class="text-slate-500">Allocated</span><b class="tabular-nums">${fmtMoney(s.allocated)}</b></div>
+          <div class="flex justify-between"><span class="text-slate-500">Released</span><b class="tabular-nums">${fmtMoney(s.released)}</b></div>
+          <div class="flex justify-between"><span class="text-slate-500">Spent</span><b class="tabular-nums">${fmtMoney(s.spent)}</b></div>
+          <div class="flex justify-between text-slate-500"><span>Remaining</span><span class="tabular-nums">${fmtMoney(s.remaining)}</span></div>
+          <div class="mt-3 pc-progress"><span style="width:${Math.min(100,s.utilization_percent)}%"></span></div>
+          <div class="text-right text-slate-500 mt-1">${s.utilization_percent}% utilized</div>
         </div>`;
-      document.getElementById('budget-tx').innerHTML = `<div class="font-semibold mb-1">Transactions</div>` +
+      document.getElementById('budget-tx').innerHTML = `<div class="font-semibold mb-1.5 text-slate-700">Transactions</div>` +
         (data.transactions.length ? data.transactions.map(t => `
-          <div class="flex justify-between py-0.5 border-t">
-            <span class="badge ${t.kind==='allocation'?'bg-sky-100 text-sky-700':t.kind==='release'?'bg-amber-100 text-amber-700':'bg-rose-100 text-rose-700'}">${t.kind}</span>
-            <span>${fmtMoney(t.amount)}</span>
+          <div class="flex justify-between py-1 border-t items-center">
+            <span class="badge ${t.kind==='allocation'?'bg-slate-100 text-slate-700 border-slate-200':t.kind==='release'?'bg-amber-50 text-amber-700 border-amber-200':'bg-rose-50 text-rose-700 border-rose-200'}">${t.kind}</span>
+            <span class="tabular-nums font-semibold">${fmtMoney(t.amount)}</span>
           </div>
-          ${t.note ? `<div class="text-slate-500 pb-1">${escapeHtml(t.note)}</div>` : ''}`).join('')
+          ${t.note ? `<div class="text-slate-500 pb-1 px-1">${escapeHtml(t.note)}</div>` : ''}`).join('')
         : '<div class="text-slate-400">none yet</div>');
     }
 
     async function loadEvidence() {
       const items = await api(`/api/contracts/${contractId}/evidence`);
       const el = document.getElementById('evidence');
-      if (!items.length) { el.innerHTML = '<div class="text-slate-400 text-sm col-span-3">No evidence uploaded.</div>'; return; }
+      if (!items.length) { el.innerHTML = '<div class="text-slate-400 text-sm col-span-3 text-center py-6">No evidence uploaded yet.</div>'; return; }
       el.innerHTML = items.map(e => `
-        <a href="${e.url}" target="_blank" class="border rounded overflow-hidden hover:border-indigo-400 block">
+        <a href="${escapeHtml(e.url)}" target="_blank" rel="noopener" class="border border-slate-200 rounded-xl overflow-hidden hover:border-slate-400 hover:shadow-md transition block bg-white">
           ${e.content_type.startsWith('image/')
-            ? `<img src="${e.url}" alt="${escapeHtml(e.filename)}" class="w-full h-32 object-cover" />`
-            : `<div class="h-32 flex items-center justify-center bg-slate-100 text-slate-500 text-3xl">📄</div>`}
-          <div class="p-2 text-xs">
+            ? `<img src="${escapeHtml(e.url)}" alt="${escapeHtml(e.filename)}" class="w-full h-32 object-cover" />`
+            : `<div class="h-32 flex items-center justify-center bg-slate-100 text-slate-400 text-xs">no preview</div>`}
+          <div class="p-2.5 text-xs">
             <div class="font-semibold truncate">${escapeHtml(e.filename)}</div>
-            <div class="text-slate-500">${(e.size/1024).toFixed(1)} KB · ${e.uploader_name || ''}</div>
+            <div class="text-slate-500">${(e.size/1024).toFixed(1)} KB · ${escapeHtml(e.uploader_name || '')}</div>
             ${e.caption?`<div class="text-slate-600 mt-1">${escapeHtml(e.caption)}</div>`:''}
           </div>
         </a>`).join('');
     }
 
+    async function loadReceipts() {
+      const [items, stats] = await Promise.all([
+        api(`/api/contracts/${contractId}/receipts`),
+        api(`/api/contracts/${contractId}/receipts/stats`),
+      ]);
+      const flagsEl = document.getElementById('receipt-flags');
+      flagsEl.innerHTML = (stats.flags || []).map(f => `
+        <div class="flex items-start gap-2 px-3 py-2 rounded-lg border ${f.tone==='err'?'bg-rose-50 border-rose-200':'bg-amber-50 border-amber-200'}">
+          <div class="text-xs ${f.tone==='err'?'text-rose-800':'text-amber-800'}">
+            <div class="font-semibold">${escapeHtml(f.title)}</div>
+            <div class="opacity-90 mt-0.5">${escapeHtml(f.detail)}</div>
+          </div>
+        </div>`).join('');
+
+      const statsEl = document.getElementById('receipt-stats');
+      const top = (stats.location_clusters && stats.location_clusters[0]) || null;
+      const photoBits = [];
+      if (stats.duplicate_photo_count) photoBits.push(`<span class="text-rose-700 font-semibold">${stats.duplicate_photo_count} duplicate photo${stats.duplicate_photo_count===1?'':'s'}</span>`);
+      if (stats.photos_missing_exif) photoBits.push(`<span class="text-amber-700">${stats.photos_missing_exif} without capture metadata</span>`);
+      statsEl.innerHTML = `
+        <b class="text-slate-700">${stats.total_receipts}</b> receipt${stats.total_receipts===1?'':'s'}
+        across <b class="text-slate-700">${stats.distinct_locations}</b> location${stats.distinct_locations===1?'':'s'}
+        ${stats.duplicate_id_count?` · <span class="text-rose-700 font-semibold">${stats.duplicate_id_count} duplicate ID</span>`:''}
+        ${photoBits.length?` · ${photoBits.join(' · ')}`:''}
+        ${top?` · top site: <span class="text-slate-700">${escapeHtml(top.label)} (${top.count})</span>`:''}`;
+
+      const el = document.getElementById('receipts');
+      if (!items.length) { el.innerHTML = '<div class="col-span-full pc-empty">No delivery proof yet. Be the first to record one.</div>'; return; }
+      const anomalyLabels = {
+        exif_missing: 'no EXIF',
+        exif_no_datetime: 'no capture date',
+        exif_stale: 'photo dated weeks earlier',
+        exif_no_gps: 'no GPS in photo',
+        exif_gps_mismatch: 'GPS mismatch',
+        exif_unreadable: 'unreadable EXIF',
+        exif_lib_missing: '—',
+        photo_reused_across_contract: 'reused photo',
+      };
+      el.innerHTML = items.map(r => {
+        const gps = (r.gps_lat != null && r.gps_lng != null)
+          ? `<a href="https://www.openstreetmap.org/?mlat=${r.gps_lat}&mlon=${r.gps_lng}#map=18/${r.gps_lat}/${r.gps_lng}" target="_blank" rel="noopener" class="pc-link">view on map</a>`
+          : '<span class="text-slate-400">no GPS</span>';
+        const shortHash = r.photo_sha256 ? r.photo_sha256.slice(0, 8) : '';
+        const badges = (r.photo_anomalies || [])
+          .filter(c => anomalyLabels[c] && anomalyLabels[c] !== '—')
+          .map(c => `<span class="badge no-dot bg-amber-100 text-amber-800" title="${escapeHtml(c)}">${anomalyLabels[c]}</span>`)
+          .join(' ');
+        return `
+        <div class="border border-slate-200 rounded-xl overflow-hidden bg-white hover:shadow-md transition">
+          <a href="${escapeHtml(r.photo_url)}" target="_blank" rel="noopener">
+            <img src="${escapeHtml(r.photo_url)}" alt="receipt #${r.id}" class="w-full h-32 object-cover" loading="lazy" />
+          </a>
+          <div class="p-2.5 text-xs">
+            <div class="font-semibold text-slate-800 truncate">${escapeHtml(r.item_received || 'Item delivered')}</div>
+            <div class="text-slate-600 truncate">to ${escapeHtml(r.recipient_name || 'anonymous beneficiary')}</div>
+            <div class="text-slate-500 truncate mt-0.5">${r.location_text?escapeHtml(r.location_text):'<i class="text-slate-400">no location</i>'}</div>
+            ${badges?`<div class="mt-1 flex flex-wrap gap-1">${badges}</div>`:''}
+            <div class="flex items-center justify-between mt-1.5 text-[10.5px] text-slate-500">
+              <span>${fmtDate(r.created_at)}</span>
+              <span>${gps}</span>
+            </div>
+            ${shortHash?`<div class="mt-1 text-[10px] text-slate-400 font-mono" title="${escapeHtml(r.photo_sha256)}">photo #${shortHash}</div>`:''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
     async function loadFeedback() {
       const items = await api(`/api/feedback?contract_id=${contractId}`);
       const el = document.getElementById('feedback');
-      if (!items.length) { el.innerHTML = '<div class="text-slate-400">No citizen reports for this contract.</div>'; return; }
+      if (!items.length) { el.innerHTML = '<div class="pc-empty">No citizen reports for this contract.</div>'; return; }
       el.innerHTML = items.map(f => `
-        <div class="border rounded p-3 mb-2">
-          <div class="flex justify-between items-center">
-            <span class="badge bg-slate-100">${f.category.replaceAll('_',' ')}</span>
+        <div class="border rounded-xl p-3 mb-2">
+          <div class="flex justify-between items-center flex-wrap gap-2">
+            <span class="badge bg-slate-100 text-slate-700 border-slate-200">${escapeHtml(f.category.replaceAll('_',' '))}</span>
             ${feedbackStatusBadge(f.status)}
           </div>
-          <div class="mt-1">${escapeHtml(f.message)}</div>
-          <div class="text-xs text-slate-500 mt-1">— ${f.is_anonymous?'<i>anonymous</i>':escapeHtml(f.reporter_label||'')} · ${fmtDate(f.created_at)}</div>
+          <div class="mt-2">${escapeHtml(f.message)}</div>
+          <div class="text-xs text-slate-500 mt-2">— ${f.is_anonymous?'<i>anonymous</i>':escapeHtml(f.reporter_label||'')} · ${fmtDate(f.created_at)}</div>
         </div>`).join('');
     }
 
@@ -194,41 +336,128 @@
       document.getElementById('modal').classList.add('hidden');
       document.getElementById('m-body').innerHTML = '';
     }
+    document.getElementById('modal').addEventListener('click', e => { if (e.target.id==='modal') closeModal(); });
 
     document.getElementById('add-milestone').onclick = () => {
+      // Category-aware milestone presets. "Custom…" reveals the free-text input.
+      const PRESETS = {
+        construction: [
+          'Site survey complete',
+          'Mobilization / equipment on site',
+          'Foundation complete',
+          'Structure / framing complete',
+          'Roofing complete',
+          'Finishing & fittings complete',
+          'Snag list closed',
+          'Handover to client',
+        ],
+        technology: [
+          'Requirements signed off',
+          'System design approved',
+          'Hardware delivered',
+          'Software installation complete',
+          'User acceptance testing complete',
+          'Training delivered',
+          'Go-live',
+          'Warranty / support period started',
+        ],
+        energy: [
+          'Site survey complete',
+          'Permits secured',
+          'Equipment delivered',
+          'Installation complete',
+          'Commissioning / energization',
+          'Performance test passed',
+          'Handover to operator',
+        ],
+        health: [
+          'Procurement schedule confirmed',
+          'First batch delivered',
+          'Cold-chain / storage verified',
+          'Inventory reconciled',
+          'Distribution to facilities complete',
+          'Quarterly delivery report filed',
+        ],
+      };
+      const GENERIC = [
+        'Kick-off meeting',
+        'Contract signed',
+        'First payment milestone',
+        'Mid-project review',
+        'Quality inspection passed',
+        'Final inspection passed',
+        'Handover to client',
+        'Project closeout',
+      ];
+      const cat = (tender && tender.category) || '';
+      const presetList = PRESETS[cat] || GENERIC;
+      const presetOptions = presetList
+        .map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`)
+        .join('');
+
       openModal('Add milestone', `
-        <form id="ms-form" class="space-y-2">
-          <input name="title" required placeholder="Title" class="w-full border rounded px-3 py-2" />
-          <input name="due_date" type="datetime-local" class="w-full border rounded px-3 py-2" />
-          <textarea name="notes" rows="2" placeholder="Notes" class="w-full border rounded px-3 py-2"></textarea>
-          <div class="flex justify-end gap-2"><button type="button" id="ms-cancel" class="px-3 py-1 border rounded">Cancel</button>
-            <button class="px-3 py-1 bg-indigo-600 text-white rounded font-semibold">Save</button></div>
+        <form id="ms-form" class="space-y-3">
+          <div>
+            <label class="text-xs text-slate-500 mb-1 block">Milestone</label>
+            <select id="ms-preset" class="input">
+              <option value="">— pick from common ${escapeHtml(cat || 'project')} milestones —</option>
+              ${presetOptions}
+              <option value="__custom__">Custom…</option>
+            </select>
+          </div>
+          <input id="ms-title" name="title" required placeholder="Title" class="input hidden" />
+          <input name="due_date" type="datetime-local" class="input" />
+          <textarea name="notes" rows="2" placeholder="Notes (optional)" class="input"></textarea>
+          <div class="flex justify-end gap-2"><button type="button" id="ms-cancel" class="btn btn-secondary">Cancel</button>
+            <button class="btn btn-primary">Save</button></div>
         </form>`);
       document.getElementById('ms-cancel').onclick = closeModal;
+
+      const presetEl = document.getElementById('ms-preset');
+      const titleEl = document.getElementById('ms-title');
+      presetEl.onchange = () => {
+        const v = presetEl.value;
+        if (v === '__custom__') {
+          titleEl.value = '';
+          titleEl.placeholder = 'Custom milestone title';
+          titleEl.classList.remove('hidden');
+          titleEl.focus();
+        } else if (v) {
+          titleEl.value = v;
+          titleEl.classList.add('hidden');
+        } else {
+          titleEl.value = '';
+          titleEl.classList.add('hidden');
+        }
+      };
+
       document.getElementById('ms-form').onsubmit = async (e) => {
         e.preventDefault();
         const fd = Object.fromEntries(new FormData(e.target));
-        const body = { title: fd.title, notes: fd.notes };
+        // If a preset is selected (and not custom), the hidden input was set by onchange.
+        const title = (fd.title || '').trim();
+        if (!title) { toast('Pick or type a milestone title.', 'warn'); return; }
+        const body = { title, notes: fd.notes };
         if (fd.due_date) body.due_date = new Date(fd.due_date).toISOString();
         try {
           await api(`/api/contracts/${contractId}/milestones`, { method: 'POST', body });
-          closeModal(); loadMilestones();
-        } catch (err) { alert(err.message); }
+          closeModal(); toast('Milestone added.', 'success'); loadMilestones();
+        } catch (err) { toast(err.message, 'error'); }
       };
     };
 
     document.getElementById('add-tx').onclick = () => {
       openModal('Add budget transaction', `
-        <form id="tx-form" class="space-y-2">
-          <select name="kind" class="w-full border rounded px-3 py-2">
+        <form id="tx-form" class="space-y-3">
+          <select name="kind" class="input">
             <option value="allocation">Allocation</option>
             <option value="release">Release</option>
             <option value="expense">Expense</option>
           </select>
-          <input name="amount" type="number" min="1" step="any" required placeholder="Amount" class="w-full border rounded px-3 py-2" />
-          <input name="note" placeholder="Note" class="w-full border rounded px-3 py-2" />
-          <div class="flex justify-end gap-2"><button type="button" id="tx-cancel" class="px-3 py-1 border rounded">Cancel</button>
-            <button class="px-3 py-1 bg-indigo-600 text-white rounded font-semibold">Save</button></div>
+          <input name="amount" type="number" min="1" step="any" required placeholder="Amount" class="input" />
+          <input name="note" placeholder="Note" class="input" />
+          <div class="flex justify-end gap-2"><button type="button" id="tx-cancel" class="btn btn-secondary">Cancel</button>
+            <button class="btn btn-primary">Save</button></div>
         </form>`);
       document.getElementById('tx-cancel').onclick = closeModal;
       document.getElementById('tx-form').onsubmit = async (e) => {
@@ -238,18 +467,18 @@
           await api(`/api/contracts/${contractId}/budget`, {
             method: 'POST', body: { kind: fd.kind, amount: parseFloat(fd.amount), note: fd.note },
           });
-          closeModal(); loadBudget();
-        } catch (err) { alert(err.message); }
+          closeModal(); toast('Transaction recorded.', 'success'); loadBudget();
+        } catch (err) { toast(err.message, 'error'); }
       };
     };
 
     document.getElementById('add-evidence').onclick = () => {
       openModal('Upload evidence', `
-        <form id="ev-form" class="space-y-2">
-          <input name="file" type="file" required class="w-full" />
-          <input name="caption" placeholder="Caption (optional)" class="w-full border rounded px-3 py-2" />
-          <div class="flex justify-end gap-2"><button type="button" id="ev-cancel" class="px-3 py-1 border rounded">Cancel</button>
-            <button class="px-3 py-1 bg-indigo-600 text-white rounded font-semibold">Upload</button></div>
+        <form id="ev-form" class="space-y-3">
+          <input name="file" type="file" required class="input" style="padding:6px" />
+          <input name="caption" placeholder="Caption (optional)" class="input" />
+          <div class="flex justify-end gap-2"><button type="button" id="ev-cancel" class="btn btn-secondary">Cancel</button>
+            <button class="btn btn-primary">Upload</button></div>
           <p class="text-xs text-slate-500">Max 5 MB · images, PDF, docs.</p>
         </form>`);
       document.getElementById('ev-cancel').onclick = closeModal;
@@ -263,14 +492,79 @@
             method: 'POST', body: fd, headers,
           });
           if (!res.ok) throw new Error((await res.json()).detail || 'Upload failed');
-          closeModal(); loadEvidence();
-        } catch (err) { alert(err.message); }
+          closeModal(); toast('Evidence uploaded.', 'success'); loadEvidence();
+        } catch (err) { toast(err.message, 'error'); }
       };
     };
 
-    function escapeHtml(s) {
-      return (s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-    }
+    document.getElementById('add-receipt').onclick = () => {
+      openModal('Record a delivery receipt', `
+        <form id="rc-form" class="space-y-3">
+          <label class="block">
+            <span class="text-xs font-semibold text-slate-700">Photo of recipient with item</span>
+            <input name="photo" type="file" accept="image/*" capture="environment" required
+                   class="input mt-1" style="padding:6px" />
+            <span class="block text-[11px] text-slate-500 mt-1">On mobile this opens the camera directly.</span>
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block">
+              <span class="text-xs font-semibold text-slate-700">Item received</span>
+              <input name="item_received" placeholder="e.g. Food parcel" class="input mt-1" />
+            </label>
+            <label class="block">
+              <span class="text-xs font-semibold text-slate-700">Recipient name <span class="text-slate-400">(optional)</span></span>
+              <input name="recipient_name" placeholder="e.g. Mary K." class="input mt-1" />
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block">
+              <span class="text-xs font-semibold text-slate-700">Location label</span>
+              <input name="location_text" placeholder="e.g. Block A" class="input mt-1" />
+            </label>
+            <label class="block">
+              <span class="text-xs font-semibold text-slate-700">National ID <span class="text-slate-400">(only hashed, not stored)</span></span>
+              <input name="recipient_id" placeholder="ID number" class="input mt-1" />
+            </label>
+          </div>
+          <input type="hidden" name="gps_lat" />
+          <input type="hidden" name="gps_lng" />
+          <div class="flex items-center justify-between gap-2 pt-1">
+            <button type="button" id="rc-geo" class="btn btn-secondary btn-sm">Attach my location</button>
+            <span id="rc-geo-status" class="text-xs text-slate-500"></span>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" id="rc-cancel" class="btn btn-secondary">Cancel</button>
+            <button class="btn btn-primary">Submit receipt</button>
+          </div>
+        </form>`);
+      document.getElementById('rc-cancel').onclick = closeModal;
+      document.getElementById('rc-geo').onclick = () => {
+        const s = document.getElementById('rc-geo-status');
+        if (!navigator.geolocation) { s.textContent = 'GPS not available in this browser'; return; }
+        s.textContent = 'Asking permission…';
+        navigator.geolocation.getCurrentPosition(pos => {
+          document.querySelector('input[name=gps_lat]').value = pos.coords.latitude.toFixed(6);
+          document.querySelector('input[name=gps_lng]').value = pos.coords.longitude.toFixed(6);
+          s.innerHTML = `<span class="text-emerald-700 font-semibold">Captured:</span> ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+        }, err => { s.textContent = 'Could not get GPS: ' + err.message; });
+      };
+      document.getElementById('rc-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        // strip empty GPS values so Pydantic doesn't barf
+        if (!fd.get('gps_lat')) fd.delete('gps_lat');
+        if (!fd.get('gps_lng')) fd.delete('gps_lng');
+        try {
+          const headers = {};
+          if (getToken()) headers['Authorization'] = 'Bearer ' + getToken();
+          const res = await fetch(`/api/contracts/${contractId}/receipts`, {
+            method: 'POST', body: fd, headers,
+          });
+          if (!res.ok) throw new Error((await res.json()).detail || 'Upload failed');
+          closeModal(); toast('Receipt recorded — thank you.', 'success'); loadReceipts();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+    };
 
     load();
   </script>

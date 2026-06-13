@@ -104,9 +104,16 @@ class ContractOut(BaseModel):
     awarded_at: datetime
     progress_status: str
     progress_percent: int
+    override_justification: Optional[str] = None
+    override_rank: Optional[int] = None
 
     class Config:
         from_attributes = True
+
+
+class AwardRequest(BaseModel):
+    # Required only when the awarded bid is not AI-ranked #1.
+    justification: Optional[str] = Field(default=None, max_length=2000)
 
 
 class ProgressUpdate(BaseModel):
@@ -244,6 +251,60 @@ class BudgetSummary(BaseModel):
     spent: float
     remaining: float
     utilization_percent: float
+
+
+# ---------- Beneficiary receipts (delivery proof) ----------
+class BeneficiaryReceiptOut(BaseModel):
+    id: int
+    contract_id: int
+    milestone_id: Optional[int] = None
+    recipient_name: Optional[str] = None
+    item_received: str
+    location_text: Optional[str] = None
+    gps_lat: Optional[float] = None
+    gps_lng: Optional[float] = None
+    photo_url: str
+    photo_sha256: Optional[str] = None
+    photo_anomalies: list[str] = []
+    exif_datetime: Optional[datetime] = None
+    recorded_by_name: Optional[str] = None
+    is_anonymous_submission: bool
+    created_at: datetime
+
+
+class BeneficiaryReceiptStats(BaseModel):
+    total_receipts: int
+    distinct_locations: int
+    duplicate_id_count: int
+    duplicate_photo_count: int = 0
+    photos_missing_exif: int = 0
+    most_recent_at: Optional[datetime] = None
+    location_clusters: list[dict] = []  # [{ "label": "Block 4", "count": 23 }]
+    flags: list[dict] = []  # [{ "tone": "warn"|"err", "title": str, "detail": str }]
+
+
+# ---------- Audit anchors (tamper-evidence) ----------
+class AnchorPublish(BaseModel):
+    note: Optional[str] = Field(default=None, max_length=500)
+    external_url: Optional[str] = Field(default=None, max_length=500)
+
+
+class AuditAnchorOut(BaseModel):
+    id: int
+    created_at: datetime
+    head_hash: str
+    entries_count: int
+    published_by_name: Optional[str] = None
+    note: str = ""
+    external_url: Optional[str] = None
+
+
+class AuditAnchorState(BaseModel):
+    current_head: Optional[str] = None
+    current_entries: int
+    last_anchor: Optional[AuditAnchorOut] = None
+    drift_since_last: int = 0
+    in_sync: bool = True
 
 
 # ---------- Contractor reputation ----------

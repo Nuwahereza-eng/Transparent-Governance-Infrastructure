@@ -3,8 +3,12 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
+
+# Allow overriding the data directory (used in production where a persistent
+# disk is mounted at e.g. /var/data). Falls back to ./data for local dev.
+_data_override = os.getenv("GOVTRUST_DATA_DIR")
+DATA_DIR = Path(_data_override).resolve() if _data_override else BASE_DIR / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'app.db'}")
 

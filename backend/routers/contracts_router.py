@@ -84,7 +84,7 @@ def add_milestone(
 @router.post("/{contract_id}/milestones/{milestone_id}/complete", response_model=MilestoneOut)
 def complete_milestone(
     contract_id: int, milestone_id: int,
-    payload: MilestoneComplete,
+    payload: MilestoneComplete | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -99,7 +99,7 @@ def complete_milestone(
     if user.role not in {Role.officer, Role.compliance_officer, Role.admin, Role.contractor}:
         raise HTTPException(403, "Insufficient permissions")
     m.completed_at = datetime.utcnow()
-    if payload.notes:
+    if payload and payload.notes:
         m.notes = (m.notes + "\n" + payload.notes).strip() if m.notes else payload.notes
     # Auto-update contract progress based on completed milestones.
     siblings = c.milestones

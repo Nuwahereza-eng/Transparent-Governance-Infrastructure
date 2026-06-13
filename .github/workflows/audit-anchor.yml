@@ -1,0 +1,55 @@
+name: Daily public audit anchor
+
+# Mirrors the ProcureChain audit-chain head to this repository so any later
+# tampering with the on-disk SQLite DB becomes externally detectable: anyone
+# can recompute the head from the running server and compare it against the
+# committed anchor history.
+#
+# Required secrets:
+#   PROCURECHAIN_API_BASE   e.g. https://demo.procurechain.example
+#   PROCURECHAIN_API_TOKEN  JWT for an admin or auditor user
+
+on:
+  schedule:
+    - cron: '17 5 * * *'  # daily at 05:17 UTC
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish anchor on server
+        id: publish
+        run: |
+          set -e
+          BASE="${{ secrets.PROCURECHAIN_API_BASE }}"
+          TOKEN="${{ secrets.PROCURECHAIN_API_TOKEN }}"
+          REPO_URL="https://github.com/${{ github.repository }}"
+          NOTE="GitHub Actions daily anchor — run ${{ github.run_id }}"
+          # Tell the server to mint a fresh anchor, then re-fetch state.
+          curl -fsS -X POST "$BASE/api/audit/anchor" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"note\": \"$NOTE\", \"external_url\": \"$REPO_URL\"}" \
+            > /tmp/published.json || true
+          curl -fsS "$BASE/api/audit/anchor" > /tmp/state.json
+
+      - name: Append to public anchor log
+        run: |
+          mkdir -p anchors
+          TS=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          jq -c --arg ts "$TS" '{ts: $ts, head: .current_head, entries: .current_entries, last: .last_anchor}' \
+            /tmp/state.json >> anchors/log.jsonl
+          jq '.' /tmp/state.json > "anchors/$(date -u +'%Y-%m-%d').json"
+
+      - name: Commit
+        run: |
+          git config user.name  "procurechain-anchor-bot"
+          git config user.email "anchor-bot@users.noreply.github.com"
+          git add anchors/
+          git commit -m "audit: anchor $(date -u +'%Y-%m-%d')" || echo "no change"
+          git push

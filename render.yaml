@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: govtrust
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: bash start.sh
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:////var/data/app.db
+      - key: GOVTRUST_DATA_DIR
+        value: /var/data
+    disk:
+      name: govtrust-data
+      mountPath: /var/data
+      sizeGB: 1

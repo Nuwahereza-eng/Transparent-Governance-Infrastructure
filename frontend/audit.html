@@ -2,42 +2,166 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Audit Chain — ProcureChain</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    /* Audit page — neutral slate for accents. */
+    .audit-list { display: flex; flex-direction: column; gap: 10px; }
+    .audit-row {
+      display: grid;
+      grid-template-columns: 64px 1fr 200px;
+      gap: 16px;
+      align-items: start;
+      padding: 14px 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-left: 3px solid #475569;
+      border-radius: 10px;
+    }
+    .audit-row:hover { background: #f8fafc; }
+    .audit-num {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: .75rem;
+      color: #64748b;
+      padding-top: 2px;
+    }
+    .audit-main { min-width: 0; }
+    .audit-headline {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      margin-bottom: 6px;
+    }
+    .audit-action {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px;
+      background: #eef2ff;
+      color: #4338ca;
+      border: 1px solid #c7d2fe;
+      border-radius: 6px;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .02em;
+      text-transform: lowercase;
+      white-space: nowrap;
+    }
+    .audit-entity {
+      font-size: .8rem;
+      color: #475569;
+      font-weight: 500;
+    }
+    .audit-entity .entity-id {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: .72rem;
+      color: #94a3b8;
+      margin-left: 4px;
+    }
+    .audit-actor {
+      font-size: .78rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .audit-actor .system { color: #94a3b8; font-style: italic; }
+    .audit-payload {
+      margin-top: 8px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+      font-size: .78rem;
+    }
+    .kv {
+      display: inline-flex; align-items: stretch;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: .72rem;
+      line-height: 1.4;
+    }
+    .kv .k {
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 3px 8px;
+      border-right: 1px solid #e2e8f0;
+      font-weight: 500;
+    }
+    .kv .v {
+      padding: 3px 8px;
+      color: #334155;
+      font-weight: 600;
+    }
+    /* semantic colors — used sparingly */
+    .kv.ok    .v { color: #047857; background: #ecfdf5; }
+    .kv.warn  .v { color: #b45309; background: #fffbeb; }
+    .kv.err   .v { color: #b91c1c; background: #fef2f2; }
+    .kv.muted .v { color: #475569; background: #f8fafc; }
+    .audit-quote {
+      flex-basis: 100%;
+      font-style: italic;
+      color: #475569;
+      font-size: .8rem;
+      border-left: 2px solid #cbd5e1;
+      padding: 2px 10px;
+      margin-top: 2px;
+    }
+    .audit-quote::before { content: '\201C'; color: #94a3b8; margin-right: 2px; }
+    .audit-quote::after  { content: '\201D'; color: #94a3b8; margin-left: 2px; }
+    .audit-raw {
+      flex-basis: 100%;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: .72rem;
+      color: #475569;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .audit-meta {
+      text-align: right;
+      font-size: .75rem;
+      color: #64748b;
+      display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+    }
+    .audit-time { white-space: nowrap; }
+    .audit-hash {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: .7rem;
+      color: #1e293b;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      padding: 2px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .audit-hash:hover { background: #e2e8f0; }
+    @media (max-width: 720px) {
+      .audit-row { grid-template-columns: 48px 1fr; }
+      .audit-meta { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+    }
+  </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <div id="hdr"></div>
-  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
-    <div class="flex items-center justify-between mb-6">
+  <main class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
+    <div class="flex items-end justify-between mb-6 flex-wrap gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Tamper-evident audit chain</h1>
-        <p class="text-sm text-slate-600">
+        <h1 class="text-3xl font-bold tracking-tight">Tamper-evident audit chain</h1>
+        <p class="text-sm text-slate-600 mt-1 max-w-2xl">
           Every critical action is appended as a SHA-256-linked entry.
-          One altered byte breaks the whole chain — the verifier below proves it.
+          If one byte is altered, the verifier will detect it.
         </p>
       </div>
-      <button id="verify" class="bg-indigo-600 text-white px-4 py-2 rounded font-semibold">Verify chain</button>
+      <div class="flex gap-2">
+        <button id="publish-anchor" class="btn btn-secondary hidden" title="Admin/auditor only">Publish anchor</button>
+        <button id="verify" class="btn btn-primary">Verify chain</button>
+      </div>
     </div>
 
+    <div id="anchor-card" class="mb-4"></div>
     <div id="verify-result" class="mb-6"></div>
 
-    <div class="bg-white rounded-xl border overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
-          <tr>
-            <th class="text-left p-3">#</th>
-            <th class="text-left p-3">Time</th>
-            <th class="text-left p-3">Actor</th>
-            <th class="text-left p-3">Action</th>
-            <th class="text-left p-3">Entity</th>
-            <th class="text-left p-3">Payload</th>
-            <th class="text-left p-3">Hash</th>
-          </tr>
-        </thead>
-        <tbody id="rows"><tr><td colspan="7" class="p-6 text-center text-slate-400">Loading…</td></tr></tbody>
-      </table>
-    </div>
+    <div id="rows" class="audit-list"></div>
   </main>
 
   <script src="/static/app.js"></script>
@@ -45,36 +169,215 @@
     renderHeader(document.getElementById('hdr'));
     document.getElementById('verify').onclick = verifyChain;
 
-    async function verifyChain() {
-      const r = await api('/api/audit/verify');
-      const el = document.getElementById('verify-result');
-      if (r.valid) {
-        el.innerHTML = `<div class="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded p-3">
-          ✅ Chain is valid. ${r.entries_checked} entries verified. Head: <span class="hash">${r.head}</span></div>`;
-      } else {
-        el.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-700 rounded p-3">
-          ❌ Chain BROKEN at entry ${r.broken_at}: ${r.reason}</div>`;
+    function skeleton(n) {
+      let out = '';
+      for (let i = 0; i < n; i++) {
+        out += `<div class="audit-row"><div class="audit-num">…</div><div class="audit-main"><div class="skeleton h-4 w-40 mb-2"></div><div class="skeleton h-3 w-64"></div></div><div class="audit-meta"><div class="skeleton h-3 w-20"></div></div></div>`;
       }
+      return out;
+    }
+    document.getElementById('rows').innerHTML = skeleton(6);
+
+    async function verifyChain() {
+      const btn = document.getElementById('verify');
+      btn.disabled = true; btn.textContent = 'Verifying…';
+      try {
+        const r = await api('/api/audit/verify');
+        const el = document.getElementById('verify-result');
+        if (r.valid) {
+          el.innerHTML = `<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-4">
+            <div class="font-semibold">Chain is valid</div>
+            <div class="text-sm mt-0.5">${r.entries_checked} entries verified.&nbsp; Head <span class="audit-hash" style="color:#047857;background:#d1fae5;border-color:#a7f3d0">${r.head.slice(0, 16)}…</span></div>
+          </div>`;
+          toast('Audit chain verified.', 'success');
+        } else {
+          el.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-4">
+            <div class="font-semibold">Chain BROKEN at entry ${r.broken_at}</div>
+            <div class="text-sm mt-0.5">${escapeHtml(r.reason)}</div>
+          </div>`;
+          toast('Chain broken.', 'error');
+        }
+      } catch (e) { toast(e.message, 'error'); }
+      finally { btn.disabled = false; btn.innerHTML = 'Verify chain'; }
+    }
+
+    function prettyAction(a) {
+      // turn snake_case into spaced words
+      return (a || '').replace(/_/g, ' ');
+    }
+
+    // Long-form / free text fields rendered as a quote block.
+    const QUOTE_KEYS = new Set(['comments', 'comment', 'message', 'notes', 'note',
+      'reason', 'description', 'moderator_note', 'explanation']);
+    // Fields we hide (redundant with column data).
+    const HIDE_KEYS = new Set(['id', 'entity_id', 'created_at', 'updated_at']);
+
+    function valueTone(key, value) {
+      const v = String(value).toLowerCase();
+      if (key === 'decision') {
+        if (v === 'approved' || v === 'approve') return 'ok';
+        if (v === 'rejected' || v === 'reject') return 'err';
+      }
+      if (key === 'new_status' || key === 'status') {
+        if (v.startsWith('approved') || v === 'awarded' || v === 'resolved' || v === 'completed') return 'ok';
+        if (v.startsWith('rejected') || v === 'cancelled' || v === 'dismissed') return 'err';
+        if (v.startsWith('pending') || v === 'under_review' || v === 'in_progress') return 'warn';
+        return 'muted';
+      }
+      if (key === 'risk_level') {
+        if (v === 'low') return 'ok';
+        if (v === 'medium') return 'warn';
+        if (v === 'high') return 'err';
+      }
+      return '';
+    }
+
+    function fmtValue(v) {
+      if (v === null || v === undefined) return '∅';
+      if (typeof v === 'number') return Number.isInteger(v) ? v.toString() : v.toFixed(2);
+      if (typeof v === 'boolean') return v ? 'true' : 'false';
+      return String(v);
+    }
+
+    function renderPayload(p) {
+      if (!p) return '';
+      let obj;
+      try { obj = JSON.parse(p); } catch { return `<div class="audit-raw">${escapeHtml(p)}</div>`; }
+      if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
+        return `<div class="audit-raw">${escapeHtml(JSON.stringify(obj))}</div>`;
+      }
+      const chips = [];
+      const quotes = [];
+      for (const [k, v] of Object.entries(obj)) {
+        if (HIDE_KEYS.has(k)) continue;
+        if (v === null || v === undefined || v === '') continue;
+        if (QUOTE_KEYS.has(k) && typeof v === 'string') {
+          quotes.push(`<div class="audit-quote">${escapeHtml(v)}</div>`);
+          continue;
+        }
+        if (typeof v === 'object') {
+          // nested object — collapse to single chip with JSON
+          chips.push(`<span class="kv muted"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(JSON.stringify(v))}</span></span>`);
+          continue;
+        }
+        const tone = valueTone(k, v);
+        chips.push(`<span class="kv ${tone}"><span class="k">${escapeHtml(k.replace(/_/g, ' '))}</span><span class="v">${escapeHtml(fmtValue(v))}</span></span>`);
+      }
+      if (!chips.length && !quotes.length) return '';
+      return `<div class="audit-payload">${chips.join('')}${quotes.join('')}</div>`;
     }
 
     (async () => {
-      const rows = await api('/api/audit?limit=500');
-      const body = document.getElementById('rows');
-      if (!rows.length) { body.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400">No entries.</td></tr>'; return; }
-      body.innerHTML = rows.map(r => `
-        <tr class="border-t align-top">
-          <td class="p-3 font-mono">${r.id}</td>
-          <td class="p-3 whitespace-nowrap">${fmtDate(r.timestamp)}</td>
-          <td class="p-3">${r.actor_email || '<span class="text-slate-400">system</span>'}</td>
-          <td class="p-3"><span class="badge bg-indigo-100 text-indigo-700">${r.action}</span></td>
-          <td class="p-3">${r.entity_type}#${r.entity_id ?? ''}</td>
-          <td class="p-3"><pre class="text-xs whitespace-pre-wrap max-w-xs">${escapeHtml(r.payload)}</pre></td>
-          <td class="p-3 hash" style="max-width:180px">${r.hash}</td>
-        </tr>`).join('');
-      verifyChain();
+      try {
+        const rows = await api('/api/audit?limit=500');
+        const body = document.getElementById('rows');
+        if (!rows.length) {
+          body.innerHTML = '<div class="pc-empty">No audit entries yet.</div>';
+          return;
+        }
+        body.innerHTML = rows.map(r => {
+          const actor = r.actor_email
+            ? escapeHtml(r.actor_email)
+            : '<span class="system">system</span>';
+          const entityId = r.entity_id != null ? `<span class="entity-id">#${r.entity_id}</span>` : '';
+          const payloadHtml = renderPayload(r.payload);
+          const shortHash = (r.hash || '').slice(0, 12);
+          return `
+            <div class="audit-row">
+              <div class="audit-num">#${r.id}</div>
+              <div class="audit-main">
+                <div class="audit-headline">
+                  <span class="audit-action">${escapeHtml(prettyAction(r.action))}</span>
+                  <span class="audit-entity">${escapeHtml(r.entity_type)}${entityId}</span>
+                </div>
+                <div class="audit-actor">by ${actor}</div>
+                ${payloadHtml}
+              </div>
+              <div class="audit-meta">
+                <div class="audit-time">${fmtDate(r.timestamp)}</div>
+                <div class="audit-hash" onclick="navigator.clipboard.writeText('${escapeHtml(r.hash)}'); toast('Hash copied.','success')" title="${escapeHtml(r.hash)}">${escapeHtml(shortHash)}…</div>
+              </div>
+            </div>`;
+        }).join('');
+        verifyChain();
+        loadAnchor();
+      } catch (e) {
+        document.getElementById('rows').innerHTML = `<div class="pc-empty">${e.message}</div>`;
+      }
     })();
 
-    function escapeHtml(s) { return (s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+    async function loadAnchor() {
+      try {
+        const s = await api('/api/audit/anchor');
+        const card = document.getElementById('anchor-card');
+        if (!s) return;
+        const last = s.last_anchor;
+        const headShort = (s.current_head || '').slice(0, 16);
+        let body;
+        if (!last) {
+          body = `<div>
+            <div class="font-semibold text-slate-800">No public anchor yet</div>
+            <div class="text-xs text-slate-600 mt-0.5">
+              Publishing an anchor commits the current chain head externally so any future tampering becomes detectable from outside the server.
+            </div></div>`;
+        } else {
+          const anchorShort = (last.head_hash || '').slice(0, 16);
+          const status = s.in_sync
+            ? `<span class="badge no-dot bg-emerald-100 text-emerald-700">in sync</span>`
+            : `<span class="badge no-dot bg-amber-100 text-amber-800">+${s.drift_since_last} entries since</span>`;
+          const ext = last.external_url
+            ? ` · <a class="pc-link" target="_blank" rel="noopener" href="${escapeHtml(last.external_url)}">verify externally ↗</a>`
+            : '';
+          body = `<div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold text-slate-800">Last public anchor</span>
+              ${status}
+            </div>
+            <div class="text-xs text-slate-600 mt-1">
+              Head <code class="text-slate-700">${escapeHtml(anchorShort)}…</code> committed
+              <b>${fmtDate(last.created_at)}</b>
+              ${last.published_by_name ? `by ${escapeHtml(last.published_by_name)}` : ''}
+              · ${last.entries_count} entries${ext}
+            </div>
+            ${last.note ? `<div class="text-xs text-slate-500 mt-1 italic">"${escapeHtml(last.note)}"</div>` : ''}
+            <div class="text-[11px] text-slate-500 mt-1">
+              Current chain head: <code class="text-slate-700">${escapeHtml(headShort)}…</code>
+              · ${s.current_entries} entries total
+            </div>
+          </div>`;
+        }
+        card.innerHTML = `<div class="pc-card pc-card-pad" style="border-left:3px solid #475569;">${body}</div>`;
+
+        // Show publish button only for admins/auditors.
+        const u = getUser();
+        if (u && (u.role === 'admin' || u.role === 'auditor')) {
+          const btn = document.getElementById('publish-anchor');
+          btn.classList.remove('hidden');
+          btn.onclick = publishAnchor;
+        }
+      } catch (e) { /* silently ignore */ }
+    }
+
+    async function publishAnchor() {
+      const btn = document.getElementById('publish-anchor');
+      const note = prompt(
+        'Note for this anchor (optional). The chain head + entry count will be permanently published.',
+        'Daily public anchor'
+      );
+      if (note === null) return;
+      btn.disabled = true;
+      const oldHtml = btn.innerHTML;
+      btn.textContent = 'Publishing…';
+      try {
+        await api('/api/audit/anchor', {
+          method: 'POST',
+          body: { note: note.trim() || null },
+        });
+        toast('Anchor published.', 'success');
+        loadAnchor();
+      } catch (e) { toast(e.message, 'error'); }
+      finally { btn.disabled = false; btn.innerHTML = oldHtml; }
+    }
   </script>
 </body>
 </html>

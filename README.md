@@ -72,15 +72,17 @@ The seed deliberately includes a **suspicious bid** (MonopolyCorp, ICT tender, +
 
 ## Walkthrough for judges (≈ 5 minutes)
 
+> **Tip:** Need to replay the demo? Sign in as `admin@gov.demo`, open the **Dashboard** and click **↻ Reset demo** — the entire database is wiped and re-seeded to the original scenario in under a second.
+
 1. Open <http://localhost:8000> — landing page shows live system snapshot.
-2. Visit **Projects** (public, no login) — click an awarded amount to drill into milestones, evidence, budget and feedback for that contract.
+2. Visit **Projects** (public, no login). The row for **School ICT Equipment Supply** is shaded red with **+45% over budget** — click the awarded amount to drill in. The contract page shows an **AI risk highlights** panel listing every deviation (over-budget, rank override, high-risk score).
 3. Visit **Analytics** — KPIs, charts, trend graph (last 90 days) and regional drill-down table.
 4. Visit **Contractors** — reputation scores; note MonopolyCorp drops to *Fair* because of risk + citizen feedback.
 5. Visit **Feedback** — submit a report anonymously (no login). Then sign in as compliance and moderate it.
 6. Visit **Audit Chain** — click **Verify chain** to recompute every SHA-256 link (every approval, feedback action and budget transaction is on it).
 7. Visit **Open Data** — download any dataset as CSV or JSON.
 8. Sign in as `officer@gov.demo / officer123`, open the **Dashboard** — create a new tender and watch it enter the approval queue. Then sign in as `compliance@gov.demo` to walk it through **Approvals**.
-9. (Optional) Sign in as `buildco@firm.demo / contractor123` to submit a bid; watch it auto-ranked and risk-scored.
+9. (Optional) Sign in as `buildco@firm.demo / contractor123` to submit a bid; watch it auto-ranked and risk-scored on the spot.
 
 ---
 

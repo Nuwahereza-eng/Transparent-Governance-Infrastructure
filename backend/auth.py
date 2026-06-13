@@ -61,3 +61,21 @@ def require_roles(*roles: Role):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return user
     return dependency
+
+
+def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Return the user if a valid token is present, else None.
+
+    Used by endpoints that accept both authenticated and anonymous submissions
+    (e.g. citizen feedback, beneficiary receipts)."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except (JWTError, ValueError, TypeError):
+        return None
+    return db.query(User).get(user_id)

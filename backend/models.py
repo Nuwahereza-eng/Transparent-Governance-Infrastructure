@@ -159,6 +159,10 @@ class Contract(Base):
     awarded_at = Column(DateTime, default=datetime.utcnow)
     progress_status = Column(String(50), default="not_started")
     progress_percent = Column(Integer, default=0)
+    # When the officer awarded a non-AI-top-ranked bid, the written reason
+    # MUST be captured here and is also chain-logged. Visible publicly.
+    override_justification = Column(Text, nullable=True)
+    override_rank = Column(Integer, nullable=True)
 
     tender = relationship("Tender", back_populates="contract")
     bid = relationship("Bid")
@@ -217,6 +221,44 @@ class BudgetTransaction(Base):
     created_by = relationship("User")
 
 
+class BeneficiaryReceipt(Base):
+    """Photo receipt from a beneficiary proving they received goods/services.
+
+    The killer anti-corruption signal: a contract claims 1000 food parcels
+    were delivered — but only 17 photo receipts exist on the chain.
+    Every receipt is publicly visible and chain-logged."""
+    __tablename__ = "beneficiary_receipts"
+    id = Column(Integer, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, index=True)
+    milestone_id = Column(Integer, ForeignKey("milestones.id"), nullable=True)
+    # Recipient identification — name optional (privacy / illiteracy);
+    # id_hash lets us catch duplicates without storing PII.
+    recipient_name = Column(String(255), nullable=True)
+    recipient_id_hash = Column(String(64), nullable=True, index=True)
+    item_received = Column(String(255), nullable=False, default="")
+    location_text = Column(String(255), nullable=True)
+    gps_lat = Column(Float, nullable=True)
+    gps_lng = Column(Float, nullable=True)
+    photo_filename = Column(String(255), nullable=False)
+    photo_stored_path = Column(String(500), nullable=False)
+    photo_content_type = Column(String(100), nullable=False, default="image/jpeg")
+    photo_size = Column(Integer, nullable=False, default=0)
+    # Photo integrity: SHA-256 of the bytes so we can catch reused images.
+    photo_sha256 = Column(String(64), nullable=True, index=True)
+    # EXIF metadata extracted at upload time — used to flag stale or
+    # spoofed photos. JSON-encoded list of short code strings.
+    photo_anomalies = Column(String(255), nullable=False, default="")
+    exif_datetime = Column(DateTime, nullable=True)
+    exif_gps_lat = Column(Float, nullable=True)
+    exif_gps_lng = Column(Float, nullable=True)
+    recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    contract = relationship("Contract", backref="beneficiary_receipts")
+    milestone = relationship("Milestone")
+    recorded_by = relationship("User")
+
+
 class FeedbackReport(Base):
     __tablename__ = "feedback_reports"
     id = Column(Integer, primary_key=True)
@@ -251,3 +293,23 @@ class AuditLog(Base):
     payload = Column(Text, nullable=False, default="{}")
     prev_hash = Column(String(64), nullable=False)
     hash = Column(String(64), nullable=False, unique=True)
+
+
+class AuditAnchor(Base):
+    """A public commitment to the chain head at a point in time.
+
+    Anchors are intended to be mirrored to an external write-only location
+    (GitHub commit, OpenTimestamps, IPFS, newspaper of record) so any later
+    tampering of the local DB becomes detectable by comparing the recomputed
+    head to the published anchors."""
+    __tablename__ = "audit_anchors"
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    head_hash = Column(String(64), nullable=False)
+    entries_count = Column(Integer, nullable=False)
+    published_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    note = Column(String(500), nullable=False, default="")
+    # Optional URL where the anchor was mirrored externally.
+    external_url = Column(String(500), nullable=True)
+
+    published_by = relationship("User")
