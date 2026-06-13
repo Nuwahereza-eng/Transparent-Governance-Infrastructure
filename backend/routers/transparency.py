@@ -222,23 +222,31 @@ def transparency_projects(db: Session = Depends(get_db)):
 
 @router.get("/analytics/trends")
 def analytics_trends(days: int = 90, db: Session = Depends(get_db)):
-    """Time-series counts and avg risk grouped by day."""
-    since = datetime.utcnow() - timedelta(days=days)
+    """Time-series counts and avg risk grouped by day.
+
+    Always returns a continuous day-by-day series (zero-filled) so the chart
+    has a stable baseline even when activity is sparse or clustered on a
+    single date.
+    """
+    days = max(1, min(days, 365))
+    today = datetime.utcnow().date()
+    since = today - timedelta(days=days - 1)
+    since_dt = datetime.combine(since, datetime.min.time())
 
     bids_by_day = defaultdict(list)
-    for b in db.query(Bid).filter(Bid.created_at >= since).all():
-        key = b.created_at.date().isoformat()
-        bids_by_day[key].append(b.risk_score or 0)
+    for b in db.query(Bid).filter(Bid.created_at >= since_dt).all():
+        bids_by_day[b.created_at.date().isoformat()].append(b.risk_score or 0)
 
     contracts_by_day = defaultdict(int)
-    for c in db.query(Contract).filter(Contract.awarded_at >= since).all():
+    for c in db.query(Contract).filter(Contract.awarded_at >= since_dt).all():
         contracts_by_day[c.awarded_at.date().isoformat()] += 1
 
     tenders_by_day = defaultdict(int)
-    for t in db.query(Tender).filter(Tender.created_at >= since).all():
+    for t in db.query(Tender).filter(Tender.created_at >= since_dt).all():
         tenders_by_day[t.created_at.date().isoformat()] += 1
 
-    days_list = sorted(set(list(bids_by_day) + list(contracts_by_day) + list(tenders_by_day)))
+    # Continuous day series so the chart always has a full timeline.
+    days_list = [(since + timedelta(days=i)).isoformat() for i in range(days)]
     return {
         "labels": days_list,
         "tenders_created": [tenders_by_day.get(d, 0) for d in days_list],

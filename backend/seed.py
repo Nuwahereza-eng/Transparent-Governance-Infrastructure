@@ -332,6 +332,36 @@ def seed():
                  "note": anchor.note},
     )
 
+    # Backdate created_at / awarded_at so the analytics trends chart shows
+    # a realistic 60-day timeline instead of one spike at "now". Spread
+    # tenders across days, bids 1-7 days after their tender, contracts a few
+    # days after their last bid. Audit log entries get matching timestamps.
+    print("Backdating timestamps so the trend chart has a real timeline...")
+    now = datetime.utcnow()
+    random.seed(7)
+    all_tenders = db.query(Tender).order_by(Tender.id).all()
+    n = len(all_tenders)
+    for i, t in enumerate(all_tenders):
+        # Spread tenders from ~58 days ago down to ~3 days ago.
+        offset_days = 58 - int((58 - 3) * i / max(1, n - 1))
+        t_created = now - timedelta(days=offset_days, hours=random.randint(0, 23))
+        t.created_at = t_created
+
+        last_bid_at = t_created
+        for b in t.bids:
+            bid_at = t_created + timedelta(
+                days=random.randint(1, min(10, max(2, offset_days - 1))),
+                hours=random.randint(0, 23),
+            )
+            b.created_at = bid_at
+            if bid_at > last_bid_at:
+                last_bid_at = bid_at
+
+        if t.contract:
+            award_at = last_bid_at + timedelta(days=random.randint(1, 3))
+            t.contract.awarded_at = award_at
+    db.commit()
+
     db.close()
     print("\nSeed complete.")
     print("\nDemo logins:")
