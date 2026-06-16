@@ -91,10 +91,23 @@
   <script>
     renderHeader(document.getElementById('hdr'));
 
+    // If the user landed here because their token expired or was invalidated
+    // (e.g. server SECRET_KEY rotated on redeploy), surface a friendly notice
+    // instead of silently dropping them on the login screen.
+    if (new URLSearchParams(location.search).get('expired') === '1') {
+      const el = document.getElementById('error');
+      el.textContent = 'Your session has expired. Please sign in again.';
+      el.classList.remove('hidden');
+      el.classList.remove('bg-rose-50', 'border-rose-200', 'text-rose-700');
+      el.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+    }
+
     function showError(msg) {
       const el = document.getElementById('error');
       el.textContent = msg;
       el.classList.remove('hidden');
+      el.classList.remove('bg-amber-50', 'border-amber-200', 'text-amber-800');
+      el.classList.add('bg-rose-50', 'border-rose-200', 'text-rose-700');
     }
 
     document.getElementById('login-form').onsubmit = async (e) => {

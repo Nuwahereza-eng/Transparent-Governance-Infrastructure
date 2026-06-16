@@ -25,6 +25,18 @@ async function api(url, opts = {}) {
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail || detail; } catch {}
+    // Auto-recover from stale / invalid sessions. Happens when the server's
+    // SECRET_KEY changed (e.g. fresh Render deploy) or the user was deleted
+    // after a reseed. Clear the dead token and send the user to /login.
+    if (res.status === 401 && getToken()) {
+      const wasInvalid = /invalid token|could not validate|expired/i.test(detail);
+      clearSession();
+      if (wasInvalid && !location.pathname.endsWith('/login.html')) {
+        location.href = '/login.html?expired=1';
+        // Hang the promise so callers don't render an error before redirect.
+        await new Promise(() => {});
+      }
+    }
     throw new Error(detail);
   }
   if (res.status === 204) return null;
