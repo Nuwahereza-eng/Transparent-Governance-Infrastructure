@@ -1,5 +1,5 @@
 /* =========================================================
-   ProcureChain — design system
+   GovTrust — design system
    Custom layer that runs on top of the Tailwind Play CDN.
    IMPORTANT: Tailwind Play CDN does NOT process @apply in
    external stylesheets, so this file uses vanilla CSS only.
