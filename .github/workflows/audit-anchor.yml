@@ -1,13 +1,17 @@
 name: Daily public audit anchor
 
-# Mirrors the ProcureChain audit-chain head to this repository so any later
+# Mirrors the GovTrust audit-chain head to this repository so any later
 # tampering with the on-disk SQLite DB becomes externally detectable: anyone
 # can recompute the head from the running server and compare it against the
 # committed anchor history.
 #
-# Required secrets:
-#   PROCURECHAIN_API_BASE   e.g. https://demo.procurechain.example
-#   PROCURECHAIN_API_TOKEN  JWT for an admin or auditor user
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   GOVTRUST_API_BASE   e.g. https://govtrust.onrender.com
+#   GOVTRUST_API_TOKEN  JWT for an admin or auditor user
+#
+# If either secret is missing the workflow skips cleanly instead of failing,
+# so you don't get nightly "all jobs failed" emails before you have wired it
+# up. Legacy PROCURECHAIN_* secret names are still honoured.
 
 on:
   schedule:
@@ -22,12 +26,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check secrets are configured
+        id: check
+        env:
+          BASE: ${{ secrets.GOVTRUST_API_BASE || secrets.PROCURECHAIN_API_BASE }}
+          TOKEN: ${{ secrets.GOVTRUST_API_TOKEN || secrets.PROCURECHAIN_API_TOKEN }}
+        run: |
+          if [[ -z "$BASE" || -z "$TOKEN" ]]; then
+            echo "::notice::GOVTRUST_API_BASE / GOVTRUST_API_TOKEN not set. Skipping anchor."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish anchor on server
-        id: publish
+        if: steps.check.outputs.configured == 'true'
+        env:
+          BASE: ${{ secrets.GOVTRUST_API_BASE || secrets.PROCURECHAIN_API_BASE }}
+          TOKEN: ${{ secrets.GOVTRUST_API_TOKEN || secrets.PROCURECHAIN_API_TOKEN }}
         run: |
           set -e
-          BASE="${{ secrets.PROCURECHAIN_API_BASE }}"
-          TOKEN="${{ secrets.PROCURECHAIN_API_TOKEN }}"
           REPO_URL="https://github.com/${{ github.repository }}"
           NOTE="GitHub Actions daily anchor — run ${{ github.run_id }}"
           # Tell the server to mint a fresh anchor, then re-fetch state.
@@ -39,6 +57,7 @@ jobs:
           curl -fsS "$BASE/api/audit/anchor" > /tmp/state.json
 
       - name: Append to public anchor log
+        if: steps.check.outputs.configured == 'true'
         run: |
           mkdir -p anchors
           TS=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -47,8 +66,9 @@ jobs:
           jq '.' /tmp/state.json > "anchors/$(date -u +'%Y-%m-%d').json"
 
       - name: Commit
+        if: steps.check.outputs.configured == 'true'
         run: |
-          git config user.name  "procurechain-anchor-bot"
+          git config user.name  "govtrust-anchor-bot"
           git config user.email "anchor-bot@users.noreply.github.com"
           git add anchors/
           git commit -m "audit: anchor $(date -u +'%Y-%m-%d')" || echo "no change"
